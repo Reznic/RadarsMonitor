@@ -1,0 +1,5 @@
+# Core dependencies
+flask>=2.0.0
+pyserial>=3.5
+# System/device scanning
+pyudev>=0.24.0

@@ -1,0 +1,20 @@
+# Core dependencies
+flask>=2.0.0
+
+# Scientific computing
+numpy>=1.20.0
+scipy>=1.7.0
+
+# Tracker algorithm dependencies
+filterpy>=1.4.5
+
+# Data analysis (optional, used in tracker algo scripts)
+pandas>=1.3.0
+
+# Visualization (optional, used for plotting)
+matplotlib>=3.5.0
+mplcursors>=0.3
+
+# Computer vision (optional, used in main_dets.py)
+opencv-python>=4.5.0
+
