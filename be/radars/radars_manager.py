@@ -15,6 +15,7 @@ except ImportError:
 class RadarsManager:
     RADAR_AZIMUTH_MAPPING_FILE = "radar_azimuth_mapping.json"
     BOOT_SERVER_PORT = 9090
+    CONFIG_RETRY_COUNT = 3
     
     def __init__(self, on_tracked_targets: Callable[[str, list], None]) -> None:
         self.on_tracked_targets = on_tracked_targets
@@ -140,14 +141,29 @@ class RadarsManager:
 
     def configure_radar(self, radar_id: str) -> bool:
         config = self.radar_config.get_config()
-        response = self.clients[radar_id].send_command(config)
-        if response == '"sensorStart"':
-            print(f"radar {radar_id} configured successfully")
-        else:
-            print(f"error configuring radar {radar_id}: {response}")
-            return False
-            #Todo: notify radar config failed
-        return True
+        
+        for attempt in range(1, self.CONFIG_RETRY_COUNT + 1):
+            try:
+                response = self.clients[radar_id].send_command(config)
+                if response == '"sensorStart"':
+                    if attempt > 1:
+                        print(f"radar {radar_id} configured successfully on attempt {attempt}")
+                    else:
+                        print(f"radar {radar_id} configured successfully")
+                    return True
+                else:
+                    print(f"error configuring radar {radar_id} (attempt {attempt}/{self.CONFIG_RETRY_COUNT}): {response}")
+                    if attempt < self.CONFIG_RETRY_COUNT:
+                        print(f"retrying configuration for radar {radar_id}...")
+            except Exception as e:
+                print(f"exception configuring radar {radar_id} (attempt {attempt}/{self.CONFIG_RETRY_COUNT}): {e}")
+                if attempt < self.CONFIG_RETRY_COUNT:
+                    print(f"retrying configuration for radar {radar_id}...")
+        
+        # All retries failed
+        print(f"failed to configure radar {radar_id} after {self.CONFIG_RETRY_COUNT} attempts")
+        #Todo: notify radar config failed
+        return False
 
     def send_command(self, radar_id: str, command: str) -> str:
         return self.clients[radar_id].send_command(command)
