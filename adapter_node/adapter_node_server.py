@@ -92,8 +92,10 @@ class RadarAdapterNodeServer:
         try:
             if self._tcp_server:
                 self._tcp_server.shutdown()
+                self._tcp_server.server_close()
+                self._tcp_server = None
         except Exception:
-            pass
+            print("Failed to shutdown TCP server")
         if self._http_thread and self._http_thread.is_alive():
             self._http_thread.join(timeout=2)
         if self._tcp_thread and self._tcp_thread.is_alive():

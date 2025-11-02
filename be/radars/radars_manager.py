@@ -4,6 +4,7 @@ from typing import List, Dict, Callable, Optional
 import os
 import json
 import threading
+import csv
 
 try:
     from flask import Flask, request, jsonify
@@ -16,9 +17,9 @@ class RadarsManager:
     RADAR_AZIMUTH_MAPPING_FILE = "radar_azimuth_mapping.json"
     BOOT_SERVER_PORT = 9090
     CONFIG_RETRY_COUNT = 3
+    UI_TRACKS_UPDATE_FILE = "trks.csv"
     
-    def __init__(self, on_tracked_targets: Callable[[str, list], None]) -> None:
-        self.on_tracked_targets = on_tracked_targets
+    def __init__(self):
         self.clients: Dict[str, RadarNodeClient] = {}
         self.radar_config = RadarConfiguration()
         self.radars_azimuth_mapping: Dict[str, float] = {}
@@ -50,7 +51,7 @@ class RadarsManager:
             host=host,
             tcp_port=tcp_port,
             frame_period=frame_period,
-            on_tracked_targets=self.on_tracked_targets
+            on_tracked_targets=self._on_tracked_targets_callback
         )
         tracker_process.start()
         self.tracker_processes[radar_id] = tracker_process
@@ -197,6 +198,19 @@ class RadarsManager:
         self.nodes_boot_server.join()
         # Todo: implement this
 
+    def _on_tracked_targets_callback(self, radar_id, tracks):
+        if tracks:
+            classified_tracks = [track for track in tracks if track.target_class and track.target_class != 'n']
+            if len(classified_tracks) > 0:
+                self._update_radar_ui_with_tracks(classified_tracks)
+
+    def _update_radar_ui_with_tracks(self, tracks):
+        # Todo: change the ui update method.  file write latency is high.
+        tracks_csv = convert_tracks_to_csv(tracks)
+        with open(self.UI_TRACKS_UPDATE_FILE, 'a') as f:
+            writer = csv.writer(f)
+            writer.writerows(tracks_csv)
+
 
 class RadarConfiguration:
     RADAR_CONFIG_TEMPLATE = "./radar_config_template.cfg"
@@ -255,19 +269,44 @@ class RadarConfiguration:
         return "\n".join(config_lines)
 
 
-def on_tracked_targets(radar_id, tracks):
-    if tracks:
-        classified_tracks = [track for track in tracks if track.target_class and track.target_class != 'n']
-        if len(classified_tracks) > 0:
-            tracks_data = [(track.target_class, track.range_val, track.get_avg_doppler()) 
-                           for track in classified_tracks]
-            print(f"radar {radar_id} tracks: {tracks_data}")
+def convert_tracks_to_csv(tracks) -> List[str]:
+    if not tracks:
+        return []
+    
+    # Convert tracks to UI format
+    ui_tracks = []
+    
+    for track in tracks:
+        # Skip unclassified tracks
+        if not hasattr(track, 'target_class') or track.target_class is None or track.target_class == 'n':
+            continue
+        
+        try:
+            x, y, z = track.get_position()
+            class_map = {'c': 'Car', 'h': 'Human', 't': 'Truck', 'n': 'None'}
+            class_name = class_map.get(track.target_class, 'None')
+            track_csv_data = [f"{track.id}",
+                              track.last_assoc_timestamp,
+                              0,
+                              0,
+                              0,
+                              f"{track.range_val:.2f}",
+                              f"{track.get_avg_doppler():.2f}",
+                              f"{x:.2f}",
+                              f"{y:.2f}",
+                              0, 0,0,0, 0, 0, 0, 0, 0, 0, 0, 0,
+                              class_name]
+            ui_tracks.append(track_csv_data)
+        except Exception as e:
+            print(f"Error converting track to UI format: {e}")
+            continue
+    return ui_tracks
 
 
 def main():
     radars_manager = None
     try:
-        radars_manager = RadarsManager(on_tracked_targets=on_tracked_targets)
+        radars_manager = RadarsManager()
         radars_manager.join()
     except KeyboardInterrupt:
         print("Shutting down...")
