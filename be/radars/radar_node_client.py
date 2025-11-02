@@ -1,5 +1,4 @@
 import json
-import socket
 import threading
 import urllib.request
 from typing import Callable, Dict, List, Optional

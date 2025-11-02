@@ -1,10 +1,9 @@
-from radar_node_client import RadarNodeClient
-from tracker_process import TrackerProcess
 from typing import List, Dict, Callable, Optional
 import os
 import json
 import threading
 import csv
+from radar import Radar, RadarConfiguration
 
 try:
     from flask import Flask, request, jsonify
@@ -14,50 +13,46 @@ except ImportError:
 
 
 class RadarsManager:
+    """Register new radars on the network, and manage their lifecycle"""
     RADAR_AZIMUTH_MAPPING_FILE = "radar_azimuth_mapping.json"
     BOOT_SERVER_PORT = 9090
-    CONFIG_RETRY_COUNT = 3
     UI_TRACKS_UPDATE_FILE = "trks.csv"
     
     def __init__(self):
-        self.clients: Dict[str, RadarNodeClient] = {}
+        self.radars: Dict[str, Radar] = {}
         self.radar_config = RadarConfiguration()
         self.radars_azimuth_mapping: Dict[str, float] = {}
-        self.tracker_processes: Dict[str, TrackerProcess] = {}
-        self._clients_lock = threading.Lock()
+        self._radars_lock = threading.Lock()
         
         self._load_azimuth_mapping(self.RADAR_AZIMUTH_MAPPING_FILE)
         self._start_boot_server(self.BOOT_SERVER_PORT)
 
     def register_radar(self, radar_id: str, host: str, http_port: int, tcp_port: int) -> None:
-        # Create client with the provided ports
-        radar_client = RadarNodeClient(radar_id, host, config_port=http_port, data_port=tcp_port)
+        """Register a new radar or update an existing one"""
+        azimuth = self.radars_azimuth_mapping.get(radar_id)
         
-        with self._clients_lock:
-            if radar_id in self.clients:
-                print(f"Radar {radar_id} already registered! updating client")
-                # Stop old tracker process if it exists
-                if radar_id in self.tracker_processes:
-                    self.tracker_processes[radar_id].stop()
+        with self._radars_lock:
+            if radar_id in self.radars:
+                print(f"Radar {radar_id} already registered! updating radar")
+                # Stop old radar
+                self.radars[radar_id].stop()
             else:
                 print(f"New radar registered: {radar_id} from {host}:{http_port}")
-            self.clients[radar_id] = radar_client
+            
+            # Create new radar instance
+            radar = Radar(
+                radar_id=radar_id,
+                host=host,
+                http_port=http_port,
+                tcp_port=tcp_port,
+                radar_config=self.radar_config,
+                azimuth=azimuth,
+                on_tracked_targets_callback=self._update_ui_with_track_targets
+            )
+            self.radars[radar_id] = radar
         
-        # Start tracker process for this radar
-        # Calculate frame_period from fps (default is 20 fps = 0.05 seconds)
-        frame_period = 1.0 / self.radar_config.fps if self.radar_config.fps > 0 else 0.05
-        tracker_process = TrackerProcess(
-            radar_id=radar_id,
-            host=host,
-            tcp_port=tcp_port,
-            frame_period=frame_period,
-            on_tracked_targets=self._on_tracked_targets_callback
-        )
-        tracker_process.start()
-        self.tracker_processes[radar_id] = tracker_process
-        
-        # Schedule radar configuration 
-        threading.Thread(target=self.configure_radar, args=(radar_id,), name=f"ConfigureRadar-{radar_id}", daemon=True).start()
+        # Schedule radar start 
+        threading.Thread(target=radar.start, name=f"StartRadar-{radar_id}", daemon=True).start()
     
     def _load_azimuth_mapping(self, mapping_file: Optional[str] = None) -> None:
         """Load radar azimuth angle mapping from a JSON file"""
@@ -138,138 +133,58 @@ class RadarsManager:
         return self.radars_azimuth_mapping.get(radar_id)
 
     def health(self) -> Dict[str, bool]:
-        return {radar_id: client.health() for radar_id, client in self.clients.items()}
+        return {radar_id: radar.health() for radar_id, radar in self.radars.items()}
 
     def configure_radar(self, radar_id: str) -> bool:
-        config = self.radar_config.get_config()
-        
-        for attempt in range(1, self.CONFIG_RETRY_COUNT + 1):
-            try:
-                response = self.clients[radar_id].send_command(config)
-                if response == '"sensorStart"':
-                    if attempt > 1:
-                        print(f"radar {radar_id} configured successfully on attempt {attempt}")
-                    else:
-                        print(f"radar {radar_id} configured successfully")
-                    return True
-                else:
-                    print(f"error configuring radar {radar_id} (attempt {attempt}/{self.CONFIG_RETRY_COUNT}): {response}")
-                    if attempt < self.CONFIG_RETRY_COUNT:
-                        print(f"retrying configuration for radar {radar_id}...")
-            except Exception as e:
-                print(f"exception configuring radar {radar_id} (attempt {attempt}/{self.CONFIG_RETRY_COUNT}): {e}")
-                if attempt < self.CONFIG_RETRY_COUNT:
-                    print(f"retrying configuration for radar {radar_id}...")
-        
-        # All retries failed
-        print(f"failed to configure radar {radar_id} after {self.CONFIG_RETRY_COUNT} attempts")
-        #Todo: notify radar config failed
-        return False
+        """Configure a specific radar"""
+        if radar_id not in self.radars:
+            print(f"Radar {radar_id} not found")
+            return False
+        return self.radars[radar_id].configure(self.radar_config, self.CONFIG_RETRY_COUNT)
 
     def send_command(self, radar_id: str, command: str) -> str:
-        return self.clients[radar_id].send_command(command)
+        """Send a command to a specific radar"""
+        return self.radars[radar_id].send_command(command)
 
     def broadcast_command(self, command: str) -> Dict[str, str]:
+        """Broadcast a command to all radars"""
         results: Dict[str, str] = {}
-        for radar_id, client in self.clients.items():
+        for radar_id, radar in self.radars.items():
             try:
-                results[radar_id] = client.send_command(command)
+                results[radar_id] = radar.send_command(command)
             except Exception as e:
                 results[radar_id] = f"error: {e}"
         return results
 
     def start_all_events(self, on_event: Callable[[str, str, Dict], None]) -> None:
-        for radar_id, client in self.clients.items():
-            client.start_events(lambda event, data, rid=radar_id: on_event(rid, event, data))
+        """Start events for all radars"""
+        for radar_id, radar in self.radars.items():
+            radar.client.start_events(lambda event, data, rid=radar_id: on_event(rid, event, data))
 
     def stop(self) -> None:
-        # Stop all tracker processes
-        for tracker_process in self.tracker_processes.values():
-            tracker_process.stop()
-        self.tracker_processes.clear()
-        
-        # Stop all clients
-        for client in self.clients.values():
-            client.stop()
-        self.clients.clear()
-        # Todo: implement this
+        """Stop all radars"""
+        for radar in self.radars.values():
+            radar.stop()
+        self.radars.clear()
 
     def join(self) -> None:
         self.nodes_boot_server.join()
-        # Todo: implement this
 
     def _on_tracked_targets_callback(self, radar_id, tracks):
         if tracks:
             classified_tracks = [track for track in tracks if track.target_class and track.target_class != 'n']
             if len(classified_tracks) > 0:
-                self._update_radar_ui_with_tracks(classified_tracks)
+                self._update_radar_ui_with_tracks(radar_id, classified_tracks)
 
-    def _update_radar_ui_with_tracks(self, tracks):
+    def _update_ui_with_track_targets(self, radar_id, tracks):
         # Todo: change the ui update method.  file write latency is high.
-        tracks_csv = convert_tracks_to_csv(tracks)
+        tracks_csv = convert_tracks_to_csv(tracks, radar_id)
         with open(self.UI_TRACKS_UPDATE_FILE, 'a') as f:
             writer = csv.writer(f)
             writer.writerows(tracks_csv)
 
 
-class RadarConfiguration:
-    RADAR_CONFIG_TEMPLATE = "./radar_config_template.cfg"
-
-    def __init__(self, fps=20, 
-                       chirp_start_freq=60, 
-                       chirp_slope=18, 
-                       cfar_range_threshold=6, 
-                       cfar_doppler_threshold=6, 
-                       cfar_min_range_fov=0, 
-                       cfar_max_range_fov=85, 
-                       cfar_min_doppler=-11, 
-                       cfar_max_doppler=-0.2):
-        self.fps = fps
-        self.frame_period_ms = int(1000 / fps)
-        self.chirp_start_freq = chirp_start_freq
-        self.chirp_slope = chirp_slope
-        self.cfar_range_threshold = cfar_range_threshold
-        self.cfar_doppler_threshold = cfar_doppler_threshold
-        self.cfar_min_range_fov = cfar_min_range_fov
-        self.cfar_max_range_fov = cfar_max_range_fov
-        self.cfar_min_doppler = cfar_min_doppler
-        self.cfar_max_doppler = cfar_max_doppler
-
-    def get_config(self) -> str:
-        # Load the template file
-        try:
-            # Try to load from package resources first
-            template_path = os.path.join(os.path.dirname(__file__), "radar_config_template.cfg")
-            with open(template_path, 'r') as f:
-                lines = f.readlines()
-        except Exception:
-            # Fallback to the hardcoded path
-            with open(self.RADAR_CONFIG_TEMPLATE, 'r') as f:
-                lines = f.readlines()
-        
-        # Replace template variables with actual values
-        config_lines = []
-        for line in lines:
-            if line.startswith("%") or line.strip() == "":
-                continue
-            # Replace all template variables in the line
-            line = line.format(
-                chirp_start_freq=self.chirp_start_freq,
-                chirp_slope=self.chirp_slope,
-                frame_period_ms=self.frame_period_ms,
-                cfar_range_threshold=self.cfar_range_threshold,
-                cfar_doppler_threshold=self.cfar_doppler_threshold,
-                cfar_min_range_fov=self.cfar_min_range_fov,
-                cfar_max_range_fov=self.cfar_max_range_fov,
-                cfar_min_doppler=self.cfar_min_doppler,
-                cfar_max_doppler=self.cfar_max_doppler
-            )
-            config_lines.append(line.strip())
-
-        return "\n".join(config_lines)
-
-
-def convert_tracks_to_csv(tracks) -> List[str]:
+def convert_tracks_to_csv(tracks, radar_id: Optional[str] = None) -> List[str]:
     if not tracks:
         return []
     
@@ -282,7 +197,6 @@ def convert_tracks_to_csv(tracks) -> List[str]:
             continue
         
         try:
-            x, y, z = track.get_position()
             class_map = {'c': 'Car', 'h': 'Human', 't': 'Truck', 'n': 'None'}
             class_name = class_map.get(track.target_class, 'None')
             track_csv_data = [f"{track.id}",
@@ -292,8 +206,8 @@ def convert_tracks_to_csv(tracks) -> List[str]:
                               0,
                               f"{track.range_val:.2f}",
                               f"{track.get_avg_doppler():.2f}",
-                              f"{x:.2f}",
-                              f"{y:.2f}",
+                              f"{track.x:.2f}",
+                              f"{track.y:.2f}",
                               0, 0,0,0, 0, 0, 0, 0, 0, 0, 0, 0,
                               class_name]
             ui_tracks.append(track_csv_data)
