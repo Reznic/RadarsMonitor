@@ -1,4 +1,5 @@
 from radar_node_client import RadarNodeClient
+from tracker_process import TrackerProcess
 from typing import List, Dict, Callable, Optional
 import os
 import json
@@ -15,11 +16,12 @@ class RadarsManager:
     RADAR_AZIMUTH_MAPPING_FILE = "radar_azimuth_mapping.json"
     BOOT_SERVER_PORT = 9090
     
-    def __init__(self, on_radar_data: Callable[[str, bytes], None]) -> None:
-        self.on_radar_data = on_radar_data
+    def __init__(self, on_tracked_targets: Callable[[str, list], None]) -> None:
+        self.on_tracked_targets = on_tracked_targets
         self.clients: Dict[str, RadarNodeClient] = {}
         self.radar_config = RadarConfiguration()
         self.radars_azimuth_mapping: Dict[str, float] = {}
+        self.tracker_processes: Dict[str, TrackerProcess] = {}
         self._clients_lock = threading.Lock()
         
         self._load_azimuth_mapping(self.RADAR_AZIMUTH_MAPPING_FILE)
@@ -32,11 +34,25 @@ class RadarsManager:
         with self._clients_lock:
             if radar_id in self.clients:
                 print(f"Radar {radar_id} already registered! updating client")
+                # Stop old tracker process if it exists
+                if radar_id in self.tracker_processes:
+                    self.tracker_processes[radar_id].stop()
             else:
                 print(f"New radar registered: {radar_id} from {host}:{http_port}")
             self.clients[radar_id] = radar_client
         
-        radar_client.start_data_stream(self.on_radar_data)
+        # Start tracker process for this radar
+        # Calculate frame_period from fps (default is 20 fps = 0.05 seconds)
+        frame_period = 1.0 / self.radar_config.fps if self.radar_config.fps > 0 else 0.05
+        tracker_process = TrackerProcess(
+            radar_id=radar_id,
+            host=host,
+            tcp_port=tcp_port,
+            frame_period=frame_period,
+            on_tracked_targets=self.on_tracked_targets
+        )
+        tracker_process.start()
+        self.tracker_processes[radar_id] = tracker_process
         
         # Schedule radar configuration 
         threading.Thread(target=self.configure_radar, args=(radar_id,), name=f"ConfigureRadar-{radar_id}", daemon=True).start()
@@ -125,11 +141,12 @@ class RadarsManager:
     def configure_radar(self, radar_id: str) -> bool:
         config = self.radar_config.get_config()
         response = self.clients[radar_id].send_command(config)
-        if response != "sensorStart":
+        if response == '"sensorStart"':
+            print(f"radar {radar_id} configured successfully")
+        else:
             print(f"error configuring radar {radar_id}: {response}")
             return False
             #Todo: notify radar config failed
-        print(f"radar {radar_id} configured successfully")
         return True
 
     def send_command(self, radar_id: str, command: str) -> str:
@@ -149,7 +166,12 @@ class RadarsManager:
             client.start_events(lambda event, data, rid=radar_id: on_event(rid, event, data))
 
     def stop(self) -> None:
-        # self.stop_boot_server()
+        # Stop all tracker processes
+        for tracker_process in self.tracker_processes.values():
+            tracker_process.stop()
+        self.tracker_processes.clear()
+        
+        # Stop all clients
         for client in self.clients.values():
             client.stop()
         self.clients.clear()
@@ -217,14 +239,24 @@ class RadarConfiguration:
         return "\n".join(config_lines)
 
 
+def on_tracked_targets(radar_id, tracks):
+    if tracks and len(tracks) > 0:
+        print(f"radar {radar_id} tracks: {[(track.target_class, track.range_val, track.get_avg_doppler()) for track in tracks]}")
+
+
 def main():
+    radars_manager = None
     try:
-        radars_manager = RadarsManager(on_radar_data=lambda rid, chunk: print(f"radar {rid} data: {len(chunk)} bytes"))
+        radars_manager = RadarsManager(on_tracked_targets=on_tracked_targets)
         radars_manager.join()
     except KeyboardInterrupt:
         print("Shutting down...")
+    except Exception as e:
+        print(f"Error: {e}")
+
     finally:
-        radars_manager.stop()
+        if radars_manager:
+            radars_manager.stop()
 
 if __name__ == "__main__":
     main()

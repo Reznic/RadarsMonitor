@@ -17,8 +17,6 @@ except ImportError:
     flask_available = False
 
 
-
-
 class _TCPClientRegistry:
     def __init__(self) -> None:
         self._lock = threading.Lock()
@@ -58,7 +56,7 @@ class _TCPClientRegistry:
 class RadarAdapterNodeServer:
     BOOT_MSG_RETRY_INTERVAL = 10
 
-    def __init__(self, radar: RadarDevice, http_port: int = 8080, tcp_port: int = 9100) -> None:
+    def __init__(self, radar: RadarDevice, http_port: int, tcp_port: int) -> None:
         self.radar = radar
         self.http_port = http_port
         self.tcp_port = tcp_port

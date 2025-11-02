@@ -33,13 +33,17 @@ class RadarDevice:
                 self.ser_config.read(ser_config.in_waiting)
 
     def send_command(self, command):
-        for command_line in command.split("\n"):
-            self.ser_config.reset_input_buffer()
-            self.ser_config.write((command_line + "\n").encode())
-            self.ser_config.flush()
-            response = b""
-            while len(response) < 2:
-                response += self.ser_config.read(self.ser_config.in_waiting)
+        try:
+            for command_line in command.split("\n"):
+                self.ser_config.reset_input_buffer()
+                self.ser_config.write((command_line + "\n").encode())
+                self.ser_config.flush()
+                response = b""
+                while len(response) < 2:
+                    response += self.ser_config.read(self.ser_config.in_waiting, timeout=1)
+        except Exception as e:
+            print(f"error sending command to radar {self.serial_number}: {e}")
+            return "config serial error"
 
         return response
 

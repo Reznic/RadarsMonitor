@@ -1,0 +1,4 @@
+[submodule "be/radars/tracker_algo"]
+	path = be/radars/tracker_algo
+	url = git@github.com:Reznic/RadarTracker.git
+	branch = human_detection

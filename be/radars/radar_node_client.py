@@ -11,9 +11,7 @@ class RadarNodeClient:
         self.host = host
         self.config_http_port = config_port
         self.data_tcp_port = data_port
-        self._data_thread: Optional[threading.Thread] = None
         self._events_thread: Optional[threading.Thread] = None
-        self._data_stop = threading.Event()
         self._events_stop = threading.Event()
 
     def _url(self, path: str) -> str:
@@ -45,33 +43,6 @@ class RadarNodeClient:
                 return obj.get('response', '')
             except Exception:
                 return raw
-
-    def start_data_stream(self, on_radar_data_cb: Callable[[str, bytes], None]) -> None:
-        if self._data_thread and self._data_thread.is_alive():
-            return
-        self._data_stop.clear()
-
-        def run():
-            try:
-                with socket.create_connection((self.host, self.data_tcp_port), timeout=5) as radar_data_socket:
-                    radar_data_socket.settimeout(1.0)
-                    while not self._data_stop.is_set():
-                        try:
-                            chunk = radar_data_socket.recv(4096)
-                            on_radar_data_cb(self.radar_id, chunk)
-                        except socket.timeout:
-                            continue
-                        except Exception:
-                            pass
-            except Exception:
-                pass
-        self._data_thread = threading.Thread(target=run, name=f"AdapterData@{self.host}", daemon=True)
-        self._data_thread.start()
-
-    def stop_data_stream(self) -> None:
-        self._data_stop.set()
-        if self._data_thread and self._data_thread.is_alive():
-            self._data_thread.join(timeout=2)
 
     def start_events(self, on_event: Callable[[str, Dict], None]) -> None:
         if self._events_thread and self._events_thread.is_alive():
@@ -110,7 +81,5 @@ class RadarNodeClient:
             self._events_thread.join(timeout=2)
 
     def stop(self) -> None:
-        self.stop_data_stream()
         self.stop_events()
-        self._data_thread = None
         self._events_thread = None

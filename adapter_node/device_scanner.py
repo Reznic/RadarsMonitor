@@ -31,10 +31,10 @@ def scan_usb_devices(filter_by_vendor=None, filter_by_model=None):
             continue
         if filter_by_model and device.get('ID_MODEL_ID') != filter_by_model:
             continue
-        serial = device.get('ID_SERIAL_SHORT')
+        serial_num = device.get('ID_SERIAL_SHORT')
         device_node = pyudev.Device.from_device_file(context, device.device_node)
         device_serial_ports = [child.device_node for child in device_node.children 
                                if child.subsystem == 'tty']
 
-        devices.append((serial, device_serial_ports))
+        devices.append((serial_num, device_serial_ports))
     return devices
