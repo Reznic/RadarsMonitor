@@ -6,6 +6,7 @@ dist/
 build/
 .output/
 *.js.map
+__pycache__/
 
 # Environment variables
 .env
