@@ -238,7 +238,7 @@ class RadarAdapterNodeServer:
             with urllib.request.urlopen(req, timeout=5) as resp:
                 response = json.loads(resp.read().decode('utf-8'))
                 if response.get('status') == 'registered':
-                    print(f"✓ Registered with manager: radar_id={response.get('radar_id')}")
+                    print(f"✓ Registered radar {response.get('radar_id')} with manager")
                     return True
                 else:
                     print(f"Warning: Boot message failed: {response}")

@@ -23,15 +23,6 @@ class RadarDevice:
         self.ser_config = serial.Serial(self.configure_port, BAUDRATE_CONFIG, timeout=0.5)
         self.ser_data = serial.Serial(self.data_port, BAUDRATE_DATA, timeout=0.5)
 
-    def send_config(self, config_file, ser_config):
-        with open(config_file, 'r') as f:
-            lines = f.readlines()
-        for line in lines:
-            if line.strip() and not line.startswith('%'):
-                line = (line.strip() + '\n').encode()
-                self.ser_config.write(line)
-                self.ser_config.read(ser_config.in_waiting)
-
     def send_command(self, command):
         try:
             for command_line in command.split("\n"):
@@ -40,7 +31,7 @@ class RadarDevice:
                 self.ser_config.flush()
                 response = b""
                 while len(response) < 2:
-                    response += self.ser_config.read(self.ser_config.in_waiting, timeout=1)
+                    response += self.ser_config.read(self.ser_config.in_waiting)
         except Exception as e:
             print(f"error sending command to radar {self.serial_number}: {e}")
             return "config serial error"

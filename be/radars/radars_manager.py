@@ -240,8 +240,12 @@ class RadarConfiguration:
 
 
 def on_tracked_targets(radar_id, tracks):
-    if tracks and len(tracks) > 0:
-        print(f"radar {radar_id} tracks: {[(track.target_class, track.range_val, track.get_avg_doppler()) for track in tracks]}")
+    if tracks:
+        classified_tracks = [track for track in tracks if track.target_class and track.target_class != 'n']
+        if len(classified_tracks) > 0:
+            tracks_data = [(track.target_class, track.range_val, track.get_avg_doppler()) 
+                           for track in classified_tracks]
+            print(f"radar {radar_id} tracks: {tracks_data}")
 
 
 def main():
