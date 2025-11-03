@@ -41,8 +41,10 @@ class RadarDevice:
     def read_data(self):
         data = b""
         while len(data) == 0:
-            data = self.ser_data.read(self.ser_data.in_waiting)
-
+            try:
+                data = self.ser_data.read(self.ser_data.in_waiting)
+            except Exception as e:
+                pass
         return data
 
     def close(self):
