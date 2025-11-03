@@ -32,6 +32,15 @@ class RadarNodeClient:
         except Exception:
             return None
 
+    def get_adapter_version(self, timeout: float = 3.0) -> Optional[str]:
+        try:
+            with urllib.request.urlopen(self._url('/version'), timeout=timeout) as resp:
+                raw = resp.read().decode('utf-8')
+                obj = json.loads(raw)
+                return obj.get('version')
+        except Exception:
+            return None
+
     def send_command(self, command: str, timeout: float = 3.0) -> str:
         data = command.encode('utf-8')
         req = urllib.request.Request(self._url('/command'), data=data, method='POST', headers={'Content-Type': 'text/plain'})

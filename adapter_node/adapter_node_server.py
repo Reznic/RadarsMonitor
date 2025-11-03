@@ -7,6 +7,9 @@ import urllib.request
 import json
 from typing import List, Optional
 
+# Adapter Node Server version
+ADAPTER_VERSION = "0.1.0"
+
 from radar_device import RadarDevice
 from device_scanner import scan_radar_devices
 
@@ -123,6 +126,11 @@ class RadarAdapterNodeServer:
         def health():
             from flask import jsonify
             return jsonify({"ok": True})
+
+        @app.route('/version', methods=['GET'])
+        def version():
+            from flask import jsonify
+            return jsonify({"version": ADAPTER_VERSION})
         
         @app.route('/serial', methods=['GET'])
         def get_serial():
