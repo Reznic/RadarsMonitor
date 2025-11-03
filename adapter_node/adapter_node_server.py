@@ -6,6 +6,7 @@ import socketserver
 import urllib.request
 import json
 from typing import List, Optional
+from flask import Flask, Response, request, jsonify, abort
 
 # Adapter Node Server version
 ADAPTER_VERSION = "0.1.0"
@@ -13,11 +14,6 @@ ADAPTER_VERSION = "0.1.0"
 from radar_device import RadarDevice
 from device_scanner import scan_radar_devices
 
-try:
-    from flask import Flask, Response, request
-    flask_available = True
-except ImportError:
-    flask_available = False
 
 
 class _TCPClientRegistry:
@@ -117,29 +113,22 @@ class RadarAdapterNodeServer:
             self._http_thread.join()
 
     def _start_http(self) -> None:
-        if not flask_available:
-            raise RuntimeError("Flask is required: pip install flask")
-        
         app = Flask(__name__)
         
         @app.route('/health', methods=['GET', 'OPTIONS'])
         def health():
-            from flask import jsonify
             return jsonify({"ok": True})
 
         @app.route('/version', methods=['GET'])
         def version():
-            from flask import jsonify
             return jsonify({"version": ADAPTER_VERSION})
         
         @app.route('/serial', methods=['GET'])
         def get_serial():
-            from flask import jsonify
             return jsonify({"serial_number": self.radar.serial_number})
         
         @app.route('/events', methods=['GET'])
         def events():
-            from flask import Response
             def generate():
                 yield ": keepalive\n\n"
                 try:
@@ -152,7 +141,6 @@ class RadarAdapterNodeServer:
         
         @app.route('/command', methods=['POST', 'OPTIONS'])
         def command():
-            from flask import request, jsonify
             cmd = request.data.decode('utf-8').strip()
             response_text = self._handle_command(cmd)
             return jsonify({"response": response_text})
