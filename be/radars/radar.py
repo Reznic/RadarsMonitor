@@ -94,13 +94,14 @@ class Radar:
         Args:
             track: The track to rotate
         """
-        if self.rotation_matrix is None:
-            return
-
         x, y, _ = track.get_position()
-        position_vector = np.array([x, y])
-        rotated_vector = self.rotation_matrix @ position_vector
-        track.x, track.y = rotated_vector[0], rotated_vector[1]
+        if self.rotation_matrix is None:
+            track.x, track.y = x, y
+        
+        else:
+            position_vector = np.array([x, y])
+            rotated_vector = self.rotation_matrix @ position_vector
+            track.x, track.y = rotated_vector[0], rotated_vector[1]
     
     def stop(self) -> None:
         """Stop the radar's tracker process and client"""
