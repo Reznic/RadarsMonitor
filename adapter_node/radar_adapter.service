@@ -1,0 +1,14 @@
+[Unit]
+Description=RadarAdapter
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /home/pi/adapter_node/adapter_node_server.py 10.0.0.2
+WorkingDirectory=/home/pi
+StandardOutput=journal
+StandardError=journal
+Restart=on-failure
+User=pi
+
+[Install]
+WantedBy=multi-user.target
