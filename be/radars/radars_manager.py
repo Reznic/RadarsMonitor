@@ -17,9 +17,12 @@ class RadarsManager:
     RADAR_AZIMUTH_MAPPING_FILE = "radar_azimuth_mapping.json"
     BOOT_SERVER_PORT = 9090
     UI_TRACKS_UPDATE_FILE = "trks.csv"
+    RADARS_FREQ_MARGIN = 0.25  # 250 MHz   to prevent interference between radars
+    INIT_FREQ = 60  # GHz
     
     def __init__(self):
         self.radars: Dict[str, Radar] = {}
+        self.next_radar_freq = self.INIT_FREQ
         self.radar_config = RadarConfiguration()
         self.radars_azimuth_mapping: Dict[str, float] = {}
         self._radars_lock = threading.Lock()
@@ -45,12 +48,12 @@ class RadarsManager:
                 host=host,
                 http_port=http_port,
                 tcp_port=tcp_port,
-                radar_config=self.radar_config,
+                radar_config=RadarConfiguration(chirp_start_freq=self.next_radar_freq),
                 azimuth=azimuth,
                 on_tracked_targets_callback=self._update_ui_with_track_targets
             )
             self.radars[radar_id] = radar
-        
+            self.next_radar_freq += self.RADARS_FREQ_MARGIN
         # Schedule radar start 
         threading.Thread(target=radar.start, name=f"StartRadar-{radar_id}", daemon=True).start()
     
