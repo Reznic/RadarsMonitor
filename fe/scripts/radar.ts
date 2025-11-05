@@ -130,8 +130,37 @@ export function cartesianToCanvas(
   return { x: canvasX, y: canvasY };
 }
 
+// Generate color based on ID number (warm colors: red, orange, yellow)
+function getColorForId(id: number): { r: number; g: number; b: number } {
+  // Use ID to generate a hue in the warm color range (0-60 degrees)
+  // Red = 0°, Orange = 30°, Yellow = 60°
+  const hue = (id * 137.5) % 60; // Golden angle distribution for better spread
+
+  // Convert HSL to RGB (fixed saturation and lightness for vibrant colors)
+  const s = 0.9; // 90% saturation
+  const l = 0.6; // 60% lightness
+
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
+  const m = l - c / 2;
+
+  let r = 0, g = 0, b = 0;
+
+  if (hue < 60) {
+    r = c;
+    g = x;
+    b = 0;
+  }
+
+  return {
+    r: Math.round((r + m) * 255),
+    g: Math.round((g + m) * 255),
+    b: Math.round((b + m) * 255)
+  };
+}
+
 // Draw tooltip for a single dot
-function drawDotTooltip(dot: RadarDot, opacity: number): void {
+function drawDotTooltip(dot: RadarDot, opacity: number, color: { r: number; g: number; b: number }): void {
   const tooltipOffset: number = 15;
   const tooltipX: number = dot.canvasX + tooltipOffset;
   const tooltipY: number = dot.canvasY - tooltipOffset;
@@ -160,7 +189,7 @@ function drawDotTooltip(dot: RadarDot, opacity: number): void {
 
   // Draw tooltip background
   ctx.fillStyle = `rgba(10, 14, 39, ${0.9 * opacity})`;
-  ctx.strokeStyle = `rgba(255, 68, 102, ${0.5 * opacity})`;
+  ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${0.5 * opacity})`;
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.roundRect(tooltipX, tooltipY, tooltipWidth, tooltipHeight, 3);
@@ -168,7 +197,7 @@ function drawDotTooltip(dot: RadarDot, opacity: number): void {
   ctx.stroke();
 
   // Draw text lines
-  ctx.fillStyle = `rgba(255, 68, 102, ${opacity})`;
+  ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${opacity})`;
   ctx.font = "14px monospace";
   texts.forEach((text, i) => {
     ctx.fillText(
@@ -186,8 +215,12 @@ export function drawRadarDots(radarDots: RadarDot[]): void {
     const age: number = radarDots.length - index;
     const opacity: number = Math.max(0.1, 1 - age / MAX_DOTS);
 
+    // Get color based on track_id
+    const color = getColorForId(dot.track_id || 0);
+    const colorString = `rgba(${color.r}, ${color.g}, ${color.b}, ${opacity})`;
+
     // Draw dot
-    ctx.fillStyle = `rgba(255, 68, 102, ${opacity})`;
+    ctx.fillStyle = colorString;
     ctx.beginPath();
     ctx.arc(dot.canvasX, dot.canvasY, 5, 0, Math.PI * 2);
     ctx.fill();
@@ -195,8 +228,8 @@ export function drawRadarDots(radarDots: RadarDot[]): void {
     // Add glow effect to newest dots
     if (index === radarDots.length - 1) {
       ctx.shadowBlur = 15;
-      ctx.shadowColor = "rgba(255, 68, 102, 0.8)";
-      ctx.fillStyle = "rgba(255, 68, 102, 1)";
+      ctx.shadowColor = `rgba(${color.r}, ${color.g}, ${color.b}, 0.8)`;
+      ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, 1)`;
       ctx.beginPath();
       ctx.arc(dot.canvasX, dot.canvasY, 5, 0, Math.PI * 2);
       ctx.fill();
@@ -204,6 +237,6 @@ export function drawRadarDots(radarDots: RadarDot[]): void {
     }
 
     // Draw tooltip for each dot
-    drawDotTooltip(dot, opacity);
+    drawDotTooltip(dot, opacity, color);
   });
 }
