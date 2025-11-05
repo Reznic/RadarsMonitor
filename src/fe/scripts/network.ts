@@ -109,6 +109,7 @@ async function pollRadarData(): Promise<void> {
 				// Create dot with all necessary data
 				const dot = {
 					track_id: target.track_id,
+					radar_id: target.radar_id,
 					x: target.x,
 					y: target.y,
 					canvasX: canvasPos.x,

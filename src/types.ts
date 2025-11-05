@@ -1,6 +1,7 @@
 // Radar Target Types
 export interface RadarTarget {
 	track_id: number;
+	radar_id: number;
 	timestamp: number;
 	x: number;
 	y: number;
@@ -13,6 +14,7 @@ export interface RadarTarget {
 // CSV Row Type - represents a single row from the CSV file
 export interface CSVRow {
 	track_id: number;
+	radar_id: number;
 	timestamp: number;
 	x: number;
 	y: number;

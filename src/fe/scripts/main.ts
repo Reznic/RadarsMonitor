@@ -5,8 +5,9 @@ import {
 	startHealthCheck,
 	startRadarPolling,
 } from "./network.ts";
-import { drawRadarBase, drawRadarDots, initCanvas } from "./radar.ts";
+import { drawRadarBase, drawRadarDots, drawSweepLine, initCanvas, updateSweepLine } from "./radar.ts";
 import { initDebugMenu } from "./debugMenu.ts";
+import { HEALTH_CHECK_INTERVAL } from "./config.ts";
 
 // Initialize application
 function init(): void {
@@ -20,7 +21,9 @@ function init(): void {
 // Render frame
 function render(): void {
 	checkServerAvailability();
+	updateSweepLine(HEALTH_CHECK_INTERVAL); // Update sweep line animation
 	drawRadarBase();
+	drawSweepLine(); // Draw sweep line after base, before dots
 	drawRadarDots(radarDots);
 	requestAnimationFrame(render);
 }

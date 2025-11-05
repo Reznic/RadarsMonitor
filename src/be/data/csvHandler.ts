@@ -122,6 +122,7 @@ export function getCurrentTargets(): RadarTarget[] {
 		// PROD MODE: Return all current data (newly ingested targets)
 		const targets = csvData.map((row) => ({
 			track_id: row.track_id,
+			radar_id: row["Radar id"] as number, // CSV column is "Radar id" with space
 			timestamp: row.timestamp,
 			x: row.x,
 			y: row.y,

@@ -15,6 +15,10 @@ let width: number,
 let baseCanvas: HTMLCanvasElement;
 let baseCtx: CanvasRenderingContext2D;
 
+// Sweep line state for health check indicator
+let sweepAngle: number = 0; // Current angle in radians
+let lastSweepUpdate: number = Date.now();
+
 // Initialize canvas dimensions and context
 export function initCanvas(): void {
   canvas = document.getElementById("radar") as HTMLCanvasElement;
@@ -85,11 +89,24 @@ function drawStaticBase(): void {
   baseCtx.lineTo(centerX + maxRadius, centerY);
   baseCtx.stroke();
 
-  // Draw center point
-  baseCtx.fillStyle = "rgba(0, 255, 255, 0.6)";
+  // Draw center point with glow effect
+  // Outer glow
+  baseCtx.shadowBlur = 15;
+  baseCtx.shadowColor = "rgba(0, 255, 255, 0.8)";
+  baseCtx.fillStyle = "rgba(0, 255, 255, 0.3)";
   baseCtx.beginPath();
-  baseCtx.arc(centerX, centerY, 4, 0, Math.PI * 2);
+  baseCtx.arc(centerX, centerY, 10, 0, Math.PI * 2);
   baseCtx.fill();
+
+  // Main center dot (bold and bright)
+  baseCtx.shadowBlur = 8;
+  baseCtx.fillStyle = "rgba(0, 255, 255, 1)";
+  baseCtx.beginPath();
+  baseCtx.arc(centerX, centerY, 6, 0, Math.PI * 2);
+  baseCtx.fill();
+
+  // Reset shadow
+  baseCtx.shadowBlur = 0;
 
   // Draw outer border
   baseCtx.strokeStyle = "rgba(0, 255, 255, 0.3)";
@@ -242,8 +259,8 @@ export function drawRadarDots(radarDots: RadarDot[]): void {
     const age: number = radarDots.length - index;
     const opacity: number = Math.max(0.1, 1 - age / MAX_DOTS);
 
-    // Get color based on track_id
-    const color = getColorForId(dot.track_id || 0);
+    // Get color based on radar_id
+    const color = getColorForId(dot.radar_id || 0);
     const colorString = `rgba(${color.r}, ${color.g}, ${color.b}, ${opacity})`;
 
     // Draw dot
@@ -266,4 +283,64 @@ export function drawRadarDots(radarDots: RadarDot[]): void {
     // Draw tooltip for each dot
     drawDotTooltip(dot, opacity, color);
   });
+}
+
+// Update sweep line angle based on time
+export function updateSweepLine(healthCheckInterval: number): void {
+  const now = Date.now();
+  const deltaTime = now - lastSweepUpdate;
+  lastSweepUpdate = now;
+
+  // Calculate rotation speed: one full rotation per health check interval
+  // Speed in radians per millisecond
+  const rotationSpeed = (2 * Math.PI) / healthCheckInterval;
+
+  // Update angle
+  sweepAngle += rotationSpeed * deltaTime;
+
+  // Keep angle in [0, 2π] range
+  if (sweepAngle > 2 * Math.PI) {
+    sweepAngle -= 2 * Math.PI;
+  }
+}
+
+// Draw the sweep line
+export function drawSweepLine(): void {
+  // Save context state
+  ctx.save();
+
+  // Move to center
+  ctx.translate(centerX, centerY);
+
+  // Rotate to current sweep angle (starting from top, going clockwise)
+  // Note: Canvas rotation is clockwise, and 0 radians is to the right
+  // We subtract π/2 to start from the top
+  ctx.rotate(sweepAngle - Math.PI / 2);
+
+  // Create gradient for the sweep line (fading effect)
+  const gradient = ctx.createLinearGradient(0, 0, 0, -maxRadius);
+  gradient.addColorStop(0, "rgba(0, 255, 255, 0.1)"); // Center: faint
+  gradient.addColorStop(0.7, "rgba(0, 255, 255, 0.4)"); // Mid: moderate
+  gradient.addColorStop(1, "rgba(0, 255, 255, 0.8)"); // Edge: bright
+
+  // Draw the sweep line
+  ctx.strokeStyle = gradient;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(0, -maxRadius);
+  ctx.stroke();
+
+  // Draw a brighter glow at the edge
+  ctx.shadowBlur = 10;
+  ctx.shadowColor = "rgba(0, 255, 255, 0.6)";
+  ctx.strokeStyle = "rgba(0, 255, 255, 0.6)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, -maxRadius * 0.9);
+  ctx.lineTo(0, -maxRadius);
+  ctx.stroke();
+
+  // Restore context state
+  ctx.restore();
 }

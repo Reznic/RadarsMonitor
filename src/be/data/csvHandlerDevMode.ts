@@ -89,6 +89,7 @@ export function getDevModeTargets(): RadarTarget[] {
 		.filter((row) => row.timestamp === currentTimestamp)
 		.map((row) => ({
 			track_id: row.track_id,
+			radar_id: row["Radar id"] as number, // CSV column is "Radar id" with space
 			timestamp: row.timestamp,
 			x: row.x,
 			y: row.y,
