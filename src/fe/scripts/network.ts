@@ -17,7 +17,7 @@ export const radarDots: RadarDot[] = [];
 export let lastDataReceived: number = Date.now();
 
 // Track history for trail effect
-const trackHistory: Map<number, RadarDot[]> = new Map(); // track_id -> array of positions
+export const trackHistory: Map<number, RadarDot[]> = new Map(); // track_id -> array of positions
 
 // Initialize DOM references
 export function initNetworkDOM(): void {

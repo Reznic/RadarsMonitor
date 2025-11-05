@@ -252,6 +252,41 @@ function drawDotTooltip(dot: RadarDot, opacity: number, color: { r: number; g: n
   });
 }
 
+// Draw fading trails for all tracks
+export function drawRadarTrails(trackHistory: Map<number, RadarDot[]>): void {
+  trackHistory.forEach((history, trackId) => {
+    if (history.length < 2) return; // Need at least 2 points for a trail
+
+    // Get color based on radar_id (use the most recent dot's radar_id)
+    const latestDot = history[history.length - 1];
+    const color = getColorForId(latestDot.radar_id || 0);
+
+    // Draw trail as connected line segments with fading opacity
+    for (let i = 0; i < history.length - 1; i++) {
+      const current = history[i];
+      const next = history[i + 1];
+
+      // Calculate opacity based on position in history (older = more transparent)
+      const progress = i / Math.max(1, history.length - 1);
+      const opacity = 0.1 + (progress * 0.4); // Range from 0.1 to 0.5
+
+      // Draw line segment
+      ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${opacity})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(current.canvasX, current.canvasY);
+      ctx.lineTo(next.canvasX, next.canvasY);
+      ctx.stroke();
+
+      // Draw small dots at each historical position
+      ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${opacity})`;
+      ctx.beginPath();
+      ctx.arc(current.canvasX, current.canvasY, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  });
+}
+
 // Draw all radar dots
 export function drawRadarDots(radarDots: RadarDot[]): void {
   radarDots.forEach((dot, index) => {

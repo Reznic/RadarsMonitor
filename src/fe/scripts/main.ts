@@ -4,8 +4,9 @@ import {
 	radarDots,
 	startHealthCheck,
 	startRadarPolling,
+	trackHistory,
 } from "./network.ts";
-import { drawRadarBase, drawRadarDots, drawSweepLine, initCanvas, updateSweepLine } from "./radar.ts";
+import { drawRadarBase, drawRadarDots, drawRadarTrails, drawSweepLine, initCanvas, updateSweepLine } from "./radar.ts";
 import { initDebugMenu } from "./debugMenu.ts";
 import { HEALTH_CHECK_INTERVAL } from "./config.ts";
 
@@ -24,6 +25,7 @@ function render(): void {
 	updateSweepLine(HEALTH_CHECK_INTERVAL); // Update sweep line animation
 	drawRadarBase();
 	drawSweepLine(); // Draw sweep line after base, before dots
+	drawRadarTrails(trackHistory); // Draw fading trails before current dots
 	drawRadarDots(radarDots);
 	requestAnimationFrame(render);
 }
