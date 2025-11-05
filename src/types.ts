@@ -42,13 +42,22 @@ export interface PlaybackInfo {
 	isPlaying: boolean;
 }
 
+// Sensor Status Types
+export interface SensorStatus {
+	id: number;
+	name: string;
+	healthy: boolean;
+	lastUpdate?: number;
+}
+
 // API Response Types
 export interface RadarResponse {
 	targets: RadarTarget[];
 }
 
 export interface HealthResponse {
-	healthy: boolean;
+	sensors: SensorStatus[];
+	overallHealthy: boolean;
 }
 
 // Configuration Types

@@ -6,11 +6,13 @@ import {
 	startRadarPolling,
 } from "./network.ts";
 import { drawRadarBase, drawRadarDots, initCanvas } from "./radar.ts";
+import { initDebugMenu } from "./debugMenu.ts";
 
 // Initialize application
 function init(): void {
 	initCanvas(); // Creates offscreen canvas and draws static base
 	initNetworkDOM();
+	initDebugMenu(); // Initialize debug menu controls
 	startHealthCheck();
 	startRadarPolling();
 }

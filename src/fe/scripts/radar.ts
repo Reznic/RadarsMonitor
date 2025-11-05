@@ -1,5 +1,6 @@
 import type { CanvasCoordinates, RadarDot } from "../../types.ts";
 import { MAX_DOTS } from "./config.ts";
+import { getTooltipConfig } from "./debugConfig.ts";
 
 // Canvas and context (to be initialized)
 let canvas: HTMLCanvasElement;
@@ -54,14 +55,14 @@ function drawStaticBase(): void {
   baseCtx.textAlign = "center";
   baseCtx.textBaseline = "middle";
 
-  for (let i = 1; i <= 8; i++) {
-    const radius = (maxRadius / 8) * i;
+  for (let i = 1; i <= 5; i++) {
+    const radius = (maxRadius / 5) * i;
     // Draw circle
     baseCtx.beginPath();
     baseCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
     baseCtx.stroke();
 
-    // Calculate distance in meters (10m increments up to 80m)
+    // Calculate distance in meters (10m increments up to 50m)
     const distance = 10 * i;
 
     // Draw distance label at the top of each circle
@@ -117,8 +118,8 @@ export function cartesianToCanvas(
   const angle: number = Math.atan2(y, x);
 
   // Scale factor: range is in meters, we need to scale to fit radar
-  // Max range is 80 meters to fit in the radar circle
-  const scale: number = maxRadius / 80;
+  // Max range is 50 meters to fit in the radar circle
+  const scale: number = maxRadius / 50;
 
   // Convert from polar (angle, range) to canvas Cartesian coordinates
   // Canvas: (0,0) is top-left, positive x is right, positive y is down
@@ -167,15 +168,41 @@ function drawDotTooltip(dot: RadarDot, opacity: number, color: { r: number; g: n
   const padding: number = 10;
   const lineHeight: number = 16;
 
-  // Prepare text - show track_id, class, x, y, range, velocity
-  const texts: string[] = [
-    `ID: ${dot.track_id || "?"}`,
-    `Class: ${dot.class || "?"}`,
-    `X: ${dot.x !== undefined ? dot.x.toFixed(2) : "?"}`,
-    `Y: ${dot.y !== undefined ? dot.y.toFixed(2) : "?"}`,
-    `Range: ${dot.range ? `${dot.range.toFixed(2)}m` : "?"}`,
-    `V: ${dot.velocity ? `${dot.velocity.toFixed(1)}m/s` : "?"}`,
-  ];
+  // Get current debug configuration
+  const config = getTooltipConfig();
+
+  // Prepare text based on debug configuration
+  const texts: string[] = [];
+
+  if (config.track_id) {
+    texts.push(`ID: ${dot.track_id || "?"}`);
+  }
+  if (config.class) {
+    texts.push(`Class: ${dot.class || "?"}`);
+  }
+  if (config.x) {
+    texts.push(`X: ${dot.x !== undefined ? dot.x.toFixed(2) : "?"}`);
+  }
+  if (config.y) {
+    texts.push(`Y: ${dot.y !== undefined ? dot.y.toFixed(2) : "?"}`);
+  }
+  if (config.range) {
+    texts.push(`Range: ${dot.range ? `${dot.range.toFixed(2)}m` : "?"}`);
+  }
+  if (config.velocity) {
+    texts.push(`V: ${dot.velocity ? `${dot.velocity.toFixed(1)}m/s` : "?"}`);
+  }
+  if (config.doppler) {
+    texts.push(`Doppler: ${dot.doppler !== undefined ? dot.doppler.toFixed(2) : "?"}`);
+  }
+  if (config.timestamp) {
+    texts.push(`Time: ${dot.timestamp || "?"}`);
+  }
+
+  // Don't draw tooltip if no fields are enabled
+  if (texts.length === 0) {
+    return;
+  }
 
   // Set font for measurement
   ctx.font = "14px monospace";

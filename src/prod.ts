@@ -30,7 +30,7 @@ function log(prefix: string, color: string, message: string): void {
 }
 
 // Start backend server
-const backend: ChildProcess = spawn("bun", ["be/server.ts"], {
+const backend: ChildProcess = spawn("bun", ["src/be/server.ts"], {
 	cwd: process.cwd(),
 	stdio: "pipe",
 	env: { ...process.env, NODE_ENV: "production" },
@@ -58,7 +58,7 @@ backend.on("close", (code: number | null) => {
 
 // Start frontend server
 const frontend: ChildProcess = spawn("bun", ["serve.ts"], {
-	cwd: join(process.cwd(), "fe"),
+	cwd: join(process.cwd(), "src/fe"),
 	stdio: "pipe",
 	env: { ...process.env, NODE_ENV: "production" },
 });
