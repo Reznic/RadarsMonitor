@@ -6,6 +6,7 @@ export interface TooltipField {
 }
 
 export interface TooltipFieldConfig {
+	show_tooltips: boolean;
 	track_id: boolean;
 	class: boolean;
 	x: boolean;
@@ -18,6 +19,7 @@ export interface TooltipFieldConfig {
 
 // Default configuration - all fields enabled
 const defaultConfig: TooltipFieldConfig = {
+	show_tooltips: true,
 	track_id: true,
 	class: true,
 	x: true,
@@ -49,6 +51,7 @@ export function resetTooltipConfig(): void {
 // Get all available fields with metadata
 export function getAvailableFields(): TooltipField[] {
 	return [
+		{ key: "show_tooltips", label: "Show Tooltips", enabled: currentConfig.show_tooltips },
 		{ key: "track_id", label: "Track ID", enabled: currentConfig.track_id },
 		{ key: "class", label: "Class", enabled: currentConfig.class },
 		{ key: "x", label: "X Coordinate", enabled: currentConfig.x },

@@ -6,7 +6,7 @@ import {
 	startRadarPolling,
 	trackHistory,
 } from "./network.ts";
-import { drawRadarBase, drawRadarDots, drawRadarTrails, drawSweepLine, initCanvas, updateSweepLine } from "./radar.ts";
+import { drawPulsatingCenter, drawRadarBase, drawRadarDots, drawRadarTrails, drawSweepLine, initCanvas, updateSweepLine } from "./radar.ts";
 import { initDebugMenu } from "./debugMenu.ts";
 import { HEALTH_CHECK_INTERVAL } from "./config.ts";
 
@@ -27,6 +27,7 @@ function render(): void {
 	drawSweepLine(); // Draw sweep line after base, before dots
 	drawRadarTrails(trackHistory); // Draw fading trails before current dots
 	drawRadarDots(radarDots);
+	drawPulsatingCenter(); // Draw pulsating center dot on top
 	requestAnimationFrame(render);
 }
 

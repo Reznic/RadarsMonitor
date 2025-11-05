@@ -89,25 +89,6 @@ function drawStaticBase(): void {
   baseCtx.lineTo(centerX + maxRadius, centerY);
   baseCtx.stroke();
 
-  // Draw center point with glow effect
-  // Outer glow
-  baseCtx.shadowBlur = 15;
-  baseCtx.shadowColor = "rgba(0, 255, 255, 0.8)";
-  baseCtx.fillStyle = "rgba(0, 255, 255, 0.3)";
-  baseCtx.beginPath();
-  baseCtx.arc(centerX, centerY, 10, 0, Math.PI * 2);
-  baseCtx.fill();
-
-  // Main center dot (bold and bright)
-  baseCtx.shadowBlur = 8;
-  baseCtx.fillStyle = "rgba(0, 255, 255, 1)";
-  baseCtx.beginPath();
-  baseCtx.arc(centerX, centerY, 6, 0, Math.PI * 2);
-  baseCtx.fill();
-
-  // Reset shadow
-  baseCtx.shadowBlur = 0;
-
   // Draw outer border
   baseCtx.strokeStyle = "rgba(0, 255, 255, 0.3)";
   baseCtx.lineWidth = 2;
@@ -162,7 +143,9 @@ function getColorForId(id: number): { r: number; g: number; b: number } {
   const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
   const m = l - c / 2;
 
-  let r = 0, g = 0, b = 0;
+  let r = 0,
+    g = 0,
+    b = 0;
 
   if (hue < 60) {
     r = c;
@@ -173,12 +156,16 @@ function getColorForId(id: number): { r: number; g: number; b: number } {
   return {
     r: Math.round((r + m) * 255),
     g: Math.round((g + m) * 255),
-    b: Math.round((b + m) * 255)
+    b: Math.round((b + m) * 255),
   };
 }
 
 // Draw tooltip for a single dot
-function drawDotTooltip(dot: RadarDot, opacity: number, color: { r: number; g: number; b: number }): void {
+function drawDotTooltip(
+  dot: RadarDot,
+  opacity: number,
+  color: { r: number; g: number; b: number }
+): void {
   const tooltipOffset: number = 15;
   const tooltipX: number = dot.canvasX + tooltipOffset;
   const tooltipY: number = dot.canvasY - tooltipOffset;
@@ -187,6 +174,11 @@ function drawDotTooltip(dot: RadarDot, opacity: number, color: { r: number; g: n
 
   // Get current debug configuration
   const config = getTooltipConfig();
+
+  // Don't draw tooltip if tooltips are disabled
+  if (!config.show_tooltips) {
+    return;
+  }
 
   // Prepare text based on debug configuration
   const texts: string[] = [];
@@ -210,7 +202,9 @@ function drawDotTooltip(dot: RadarDot, opacity: number, color: { r: number; g: n
     texts.push(`V: ${dot.velocity ? `${dot.velocity.toFixed(1)}m/s` : "?"}`);
   }
   if (config.doppler) {
-    texts.push(`Doppler: ${dot.doppler !== undefined ? dot.doppler.toFixed(2) : "?"}`);
+    texts.push(
+      `Doppler: ${dot.doppler !== undefined ? dot.doppler.toFixed(2) : "?"}`
+    );
   }
   if (config.timestamp) {
     texts.push(`Time: ${dot.timestamp || "?"}`);
@@ -233,7 +227,9 @@ function drawDotTooltip(dot: RadarDot, opacity: number, color: { r: number; g: n
 
   // Draw tooltip background
   ctx.fillStyle = `rgba(10, 14, 39, ${0.9 * opacity})`;
-  ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${0.5 * opacity})`;
+  ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${
+    0.5 * opacity
+  })`;
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.roundRect(tooltipX, tooltipY, tooltipWidth, tooltipHeight, 3);
@@ -268,7 +264,7 @@ export function drawRadarTrails(trackHistory: Map<number, RadarDot[]>): void {
 
       // Calculate opacity based on position in history (older = more transparent)
       const progress = i / Math.max(1, history.length - 1);
-      const opacity = 0.1 + (progress * 0.4); // Range from 0.1 to 0.5
+      const opacity = 0.1 + progress * 0.4; // Range from 0.1 to 0.5
 
       // Draw line segment
       ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${opacity})`;
@@ -301,7 +297,7 @@ export function drawRadarDots(radarDots: RadarDot[]): void {
     // Draw dot
     ctx.fillStyle = colorString;
     ctx.beginPath();
-    ctx.arc(dot.canvasX, dot.canvasY, 5, 0, Math.PI * 2);
+    ctx.arc(dot.canvasX, dot.canvasY, 7, 0, Math.PI * 2);
     ctx.fill();
 
     // Add glow effect to newest dots
@@ -310,7 +306,7 @@ export function drawRadarDots(radarDots: RadarDot[]): void {
       ctx.shadowColor = `rgba(${color.r}, ${color.g}, ${color.b}, 0.8)`;
       ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, 1)`;
       ctx.beginPath();
-      ctx.arc(dot.canvasX, dot.canvasY, 5, 0, Math.PI * 2);
+      ctx.arc(dot.canvasX, dot.canvasY, 7, 0, Math.PI * 2);
       ctx.fill();
       ctx.shadowBlur = 0;
     }
@@ -378,4 +374,59 @@ export function drawSweepLine(): void {
 
   // Restore context state
   ctx.restore();
+}
+
+// Draw pulsating center dot with expanding rings
+export function drawPulsatingCenter(): void {
+  const time = Date.now();
+  const pulseDuration = 2500; // Duration of one complete pulse in milliseconds
+  const maxRingRadius = 15; // Maximum radius before ring fades completely
+  const numberOfRings = 1; // Number of concurrent rings
+
+  // Draw multiple expanding rings at different stages
+  for (let i = 0; i < numberOfRings; i++) {
+    // Offset each ring's timing so they're evenly spaced
+    const ringOffset = (pulseDuration / numberOfRings) * i;
+    const ringProgress = ((time + ringOffset) % pulseDuration) / pulseDuration; // 0 to 1
+
+    // Calculate ring radius (expands from center)
+    const ringRadius = ringProgress * maxRingRadius;
+
+    // Calculate opacity (fades out as it expands)
+    const opacity = (1 - ringProgress) * 0.6; // Start at 0.6, fade to 0
+
+    // Don't draw if too faint
+    if (opacity < 0.05) continue;
+
+    // Draw ring
+    ctx.strokeStyle = `rgba(0, 255, 255, ${opacity})`;
+    ctx.lineWidth = 2;
+    ctx.shadowBlur = 10 * (1 - ringProgress); // Blur fades as ring expands
+    ctx.shadowColor = `rgba(0, 255, 255, ${opacity * 0.5})`;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, ringRadius, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // Reset shadow
+  ctx.shadowBlur = 0;
+
+  // Draw static center point with glow effect
+  // Outer glow
+  ctx.shadowBlur = 50;
+  ctx.shadowColor = "rgba(0, 255, 255, 0.8)";
+  ctx.fillStyle = "rgba(0, 255, 255, 0.3)";
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, 15, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Main center dot (bold and bright)
+  ctx.shadowBlur = 30;
+  ctx.fillStyle = "rgba(0, 255, 255, 1)";
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, 6, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Reset shadow
+  ctx.shadowBlur = 0;
 }
