@@ -82,9 +82,20 @@ class Radar:
         """Send a command to the radar"""
         return self.client.send_command(command)
     
-    def health(self) -> bool:
-        """Check if the radar is healthy"""
+    def adapter_node_health(self) -> bool:
+        """Check if the radar adapter node is healthy. Does not check if the radar is receiving data."""
         return self.client.health()
+    
+    def get_data_reception_health(self) -> bool:
+        """
+        Get the health status based on whether the tracker process is receiving data.
+        
+        Returns:
+            bool: True if data was received on TCP socket since last check, False otherwise
+        """
+        if self.tracker_process:
+            return self.tracker_process.get_and_reset_health()
+        return False
     
     def rotate_track(self, track) -> None:
         """

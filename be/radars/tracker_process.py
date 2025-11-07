@@ -37,6 +37,10 @@ class TrackerProcess:
         self._running = False
         self.frame_parser = RadarFrameParser(radar_id, frame_period, doppler_threshold=0.1, range_threshold=0.1)
         self.tracker = TrackerManager_3D()
+        
+        # Health flag: True when data is received on TCP socket, reset to False after each GET request
+        self._data_received_flag = False
+        self._health_lock = threading.Lock()
 
     def _process_frame(self, data_buffer: bytearray) -> bool:
         detections, frame_number = self.frame_parser.parse_frame_from_buffer(data_buffer)
@@ -91,7 +95,11 @@ class TrackerProcess:
                         try:
                             # Receive data chunks
                             chunk = radar_data_socket.recv(4096)
-                            self._process_frame(chunk)
+                            if chunk:
+                                # Set health flag to True when data is received (before passing to frame parser)
+                                with self._health_lock:
+                                    self._data_received_flag = True
+                                self._process_frame(chunk)
                         
                         except socket.timeout:
                             continue
@@ -111,4 +119,16 @@ class TrackerProcess:
     def is_running(self) -> bool:
         """Check if the tracker process is running"""
         return self._running and self._thread is not None and self._thread.is_alive()
+    
+    def get_and_reset_health(self) -> bool:
+        """
+        Get the health status (whether data was received) and reset the flag to False.
+        
+        Returns:
+            bool: True if data was received since last check, False otherwise
+        """
+        with self._health_lock:
+            is_healthy = self._data_received_flag
+            self._data_received_flag = False  # Reset after each GET request
+        return is_healthy
 

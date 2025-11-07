@@ -113,6 +113,43 @@ class RadarsManager:
                 print(f"Error handling boot message: {e}")
                 return jsonify({"error": str(e)}), 500
         
+        @app.route('/health', methods=['GET', 'OPTIONS'])
+        def health():
+            """Health endpoint that checks if tracker processes are receiving data on TCP sockets"""
+            try:
+                radar_id = request.args.get('radar_id')
+                
+                with self._radars_lock:
+                    if radar_id:
+                        # Return health for specific radar
+                        if radar_id not in self.radars:
+                            return jsonify({"error": f"Radar {radar_id} not found"}), 404
+                        is_healthy = self.radars[radar_id].get_data_reception_health()
+                        return jsonify(is_healthy)
+                    else:
+                        # Return health for all radars
+                        health_status = {
+                            rid: radar.get_data_reception_health()
+                            for rid, radar in self.radars.items()
+                        }
+                        return jsonify(health_status)
+            except Exception as e:
+                print(f"Error checking health: {e}")
+                return jsonify({"error": str(e)}), 500
+        
+        @app.route('/health/<radar_id>', methods=['GET', 'OPTIONS'])
+        def health_by_id(radar_id: str):
+            """Health endpoint for a specific radar by ID"""
+            try:
+                with self._radars_lock:
+                    if radar_id not in self.radars:
+                        return jsonify({"error": f"Radar {radar_id} not found"}), 404
+                    is_healthy = self.radars[radar_id].get_data_reception_health()
+                    return jsonify(is_healthy)
+            except Exception as e:
+                print(f"Error checking health for radar {radar_id}: {e}")
+                return jsonify({"error": str(e)}), 500
+        
         @app.after_request
         def after_request(resp):
             resp.headers['Access-Control-Allow-Origin'] = '*'
@@ -134,9 +171,6 @@ class RadarsManager:
     def get_radar_azimuth(self, radar_id: str) -> Optional[float]:
         """Get the azimuth angle for a specific radar by its ID"""
         return self.radars_azimuth_mapping.get(radar_id)
-
-    def health(self) -> Dict[str, bool]:
-        return {radar_id: radar.health() for radar_id, radar in self.radars.items()}
 
     def configure_radar(self, radar_id: str) -> bool:
         """Configure a specific radar"""
