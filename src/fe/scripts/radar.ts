@@ -1,0 +1,432 @@
+import type { CanvasCoordinates, RadarDot } from "../../types.ts";
+import { MAX_DOTS } from "./config.ts";
+import { getTooltipConfig } from "./debugConfig.ts";
+
+// Canvas and context (to be initialized)
+let canvas: HTMLCanvasElement;
+let ctx: CanvasRenderingContext2D;
+let width: number,
+  height: number,
+  centerX: number,
+  centerY: number,
+  maxRadius: number;
+
+// Offscreen canvas for static radar base (optimization)
+let baseCanvas: HTMLCanvasElement;
+let baseCtx: CanvasRenderingContext2D;
+
+// Sweep line state for health check indicator
+let sweepAngle: number = 0; // Current angle in radians
+let lastSweepUpdate: number = Date.now();
+
+// Initialize canvas dimensions and context
+export function initCanvas(): void {
+  canvas = document.getElementById("radar") as HTMLCanvasElement;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Failed to get 2D context");
+  ctx = context;
+
+  // Calculate size based on viewport - use the smaller dimension to keep it circular
+  const size = Math.min(window.innerWidth, window.innerHeight) * 0.95; // 95% of viewport
+  canvas.width = size;
+  canvas.height = size;
+
+  width = canvas.width;
+  height = canvas.height;
+  centerX = width / 2;
+  centerY = height / 2;
+  maxRadius = Math.min(width, height) / 2 - 20;
+
+  // Create offscreen canvas for static base
+  baseCanvas = document.createElement("canvas");
+  baseCanvas.width = width;
+  baseCanvas.height = height;
+  const baseContext = baseCanvas.getContext("2d");
+  if (!baseContext) throw new Error("Failed to get 2D context for base canvas");
+  baseCtx = baseContext;
+
+  // Draw the static base once to the offscreen canvas
+  drawStaticBase();
+}
+
+// Draw the static radar base once to offscreen canvas
+function drawStaticBase(): void {
+  // Draw concentric circles (distance rings) with distance labels
+  baseCtx.strokeStyle = "rgba(0, 255, 255, 0.15)";
+  baseCtx.lineWidth = 1;
+  baseCtx.font = "20px monospace";
+  baseCtx.fillStyle = "rgba(0, 255, 255, 0.5)";
+  baseCtx.textAlign = "center";
+  baseCtx.textBaseline = "middle";
+
+  for (let i = 1; i <= 5; i++) {
+    const radius = (maxRadius / 5) * i;
+    // Draw circle
+    baseCtx.beginPath();
+    baseCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    baseCtx.stroke();
+
+    // Calculate distance in meters (10m increments up to 50m)
+    const distance = 10 * i;
+
+    // Draw distance label at the top of each circle
+    baseCtx.fillText(`${distance}m`, centerX, centerY - radius - 8);
+  }
+
+  // Draw crosshairs (quadrant dividers)
+  baseCtx.strokeStyle = "rgba(0, 255, 255, 0.25)";
+  baseCtx.lineWidth = 1.5;
+
+  // Vertical line
+  baseCtx.beginPath();
+  baseCtx.moveTo(centerX, centerY - maxRadius);
+  baseCtx.lineTo(centerX, centerY + maxRadius);
+  baseCtx.stroke();
+
+  // Horizontal line
+  baseCtx.beginPath();
+  baseCtx.moveTo(centerX - maxRadius, centerY);
+  baseCtx.lineTo(centerX + maxRadius, centerY);
+  baseCtx.stroke();
+
+  // Draw outer border
+  baseCtx.strokeStyle = "rgba(0, 255, 255, 0.3)";
+  baseCtx.lineWidth = 2;
+  baseCtx.beginPath();
+  baseCtx.arc(centerX, centerY, maxRadius, 0, Math.PI * 2);
+  baseCtx.stroke();
+}
+
+// Composite the static base onto main canvas (called each frame)
+export function drawRadarBase(): void {
+  // Clear canvas
+  ctx.clearRect(0, 0, width, height);
+
+  // Draw the pre-rendered base from offscreen canvas
+  ctx.drawImage(baseCanvas, 0, 0);
+}
+
+// Convert polar coordinates (from CSV) to canvas coordinates
+export function cartesianToCanvas(
+  x: number,
+  y: number,
+  range: number
+): CanvasCoordinates {
+  // Calculate polar angle from x,y components using atan2
+  const angle: number = Math.atan2(y, x);
+
+  // Scale factor: range is in meters, we need to scale to fit radar
+  // Max range is 50 meters to fit in the radar circle
+  const scale: number = maxRadius / 50;
+
+  // Convert from polar (angle, range) to canvas Cartesian coordinates
+  // Canvas: (0,0) is top-left, positive x is right, positive y is down
+  // Radar: angle 0 is to the right (east), angle increases counter-clockwise
+  const scaledRange: number = range * scale;
+  const canvasX: number = centerX + scaledRange * Math.cos(angle);
+  const canvasY: number = centerY - scaledRange * Math.sin(angle); // Invert y because canvas y is down
+
+  return { x: canvasX, y: canvasY };
+}
+
+// Generate color based on ID number (warm colors: red, orange, yellow)
+function getColorForId(id: number): { r: number; g: number; b: number } {
+  // Use ID to generate a hue in the warm color range (0-60 degrees)
+  // Red = 0°, Orange = 30°, Yellow = 60°
+  const hue = (id * 137.5) % 60; // Golden angle distribution for better spread
+
+  // Convert HSL to RGB (fixed saturation and lightness for vibrant colors)
+  const s = 0.9; // 90% saturation
+  const l = 0.6; // 60% lightness
+
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
+  const m = l - c / 2;
+
+  let r = 0,
+    g = 0,
+    b = 0;
+
+  if (hue < 60) {
+    r = c;
+    g = x;
+    b = 0;
+  }
+
+  return {
+    r: Math.round((r + m) * 255),
+    g: Math.round((g + m) * 255),
+    b: Math.round((b + m) * 255),
+  };
+}
+
+// Draw tooltip for a single dot
+function drawDotTooltip(
+  dot: RadarDot,
+  opacity: number,
+  color: { r: number; g: number; b: number }
+): void {
+  const tooltipOffset: number = 15;
+  const tooltipX: number = dot.canvasX + tooltipOffset;
+  const tooltipY: number = dot.canvasY - tooltipOffset;
+  const padding: number = 10;
+  const lineHeight: number = 16;
+
+  // Get current debug configuration
+  const config = getTooltipConfig();
+
+  // Don't draw tooltip if tooltips are disabled
+  if (!config.show_tooltips) {
+    return;
+  }
+
+  // Prepare text based on debug configuration
+  const texts: string[] = [];
+
+  if (config.track_id) {
+    texts.push(`ID: ${dot.track_id || "?"}`);
+  }
+  if (config.class) {
+    texts.push(`Class: ${dot.class || "?"}`);
+  }
+  if (config.x) {
+    texts.push(`X: ${dot.x !== undefined ? dot.x.toFixed(2) : "?"}`);
+  }
+  if (config.y) {
+    texts.push(`Y: ${dot.y !== undefined ? dot.y.toFixed(2) : "?"}`);
+  }
+  if (config.range) {
+    texts.push(`Range: ${dot.range ? `${dot.range.toFixed(2)}m` : "?"}`);
+  }
+  if (config.velocity) {
+    texts.push(`V: ${dot.velocity ? `${dot.velocity.toFixed(1)}m/s` : "?"}`);
+  }
+  if (config.doppler) {
+    texts.push(
+      `Doppler: ${dot.doppler !== undefined ? dot.doppler.toFixed(2) : "?"}`
+    );
+  }
+  if (config.timestamp) {
+    texts.push(`Time: ${dot.timestamp || "?"}`);
+  }
+
+  // Don't draw tooltip if no fields are enabled
+  if (texts.length === 0) {
+    return;
+  }
+
+  // Set font for measurement
+  ctx.font = "14px monospace";
+
+  // Calculate tooltip dimensions
+  const maxWidth: number = Math.max(
+    ...texts.map((t) => ctx.measureText(t).width)
+  );
+  const tooltipWidth: number = maxWidth + padding * 2;
+  const tooltipHeight: number = texts.length * lineHeight + padding * 2;
+
+  // Draw tooltip background
+  ctx.fillStyle = `rgba(10, 14, 39, ${0.9 * opacity})`;
+  ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${
+    0.5 * opacity
+  })`;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.roundRect(tooltipX, tooltipY, tooltipWidth, tooltipHeight, 3);
+  ctx.fill();
+  ctx.stroke();
+
+  // Draw text lines
+  ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${opacity})`;
+  ctx.font = "14px monospace";
+  texts.forEach((text, i) => {
+    ctx.fillText(
+      text,
+      tooltipX + padding,
+      tooltipY + padding + lineHeight * (i + 1) - 2
+    );
+  });
+}
+
+// Draw fading trails for all tracks
+export function drawRadarTrails(trackHistory: Map<number, RadarDot[]>): void {
+  trackHistory.forEach((history, trackId) => {
+    if (history.length < 2) return; // Need at least 2 points for a trail
+
+    // Get color based on radar_id (use the most recent dot's radar_id)
+    const latestDot = history[history.length - 1];
+    const color = getColorForId(latestDot.radar_id || 0);
+
+    // Draw trail as connected line segments with fading opacity
+    for (let i = 0; i < history.length - 1; i++) {
+      const current = history[i];
+      const next = history[i + 1];
+
+      // Calculate opacity based on position in history (older = more transparent)
+      const progress = i / Math.max(1, history.length - 1);
+      const opacity = 0.1 + progress * 0.4; // Range from 0.1 to 0.5
+
+      // Draw line segment
+      ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${opacity})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(current.canvasX, current.canvasY);
+      ctx.lineTo(next.canvasX, next.canvasY);
+      ctx.stroke();
+
+      // Draw small dots at each historical position
+      ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${opacity})`;
+      ctx.beginPath();
+      ctx.arc(current.canvasX, current.canvasY, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  });
+}
+
+// Draw all radar dots
+export function drawRadarDots(radarDots: RadarDot[]): void {
+  radarDots.forEach((dot, index) => {
+    // Calculate opacity based on age (newer dots are brighter)
+    const age: number = radarDots.length - index;
+    const opacity: number = Math.max(0.1, 1 - age / MAX_DOTS);
+
+    // Get color based on radar_id
+    const color = getColorForId(dot.radar_id || 0);
+    const colorString = `rgba(${color.r}, ${color.g}, ${color.b}, ${opacity})`;
+
+    // Draw dot
+    ctx.fillStyle = colorString;
+    ctx.beginPath();
+    ctx.arc(dot.canvasX, dot.canvasY, 7, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Add glow effect to newest dots
+    if (index === radarDots.length - 1) {
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = `rgba(${color.r}, ${color.g}, ${color.b}, 0.8)`;
+      ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, 1)`;
+      ctx.beginPath();
+      ctx.arc(dot.canvasX, dot.canvasY, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    // Draw tooltip for each dot
+    drawDotTooltip(dot, opacity, color);
+  });
+}
+
+// Update sweep line angle based on time
+export function updateSweepLine(healthCheckInterval: number): void {
+  const now = Date.now();
+  const deltaTime = now - lastSweepUpdate;
+  lastSweepUpdate = now;
+
+  // Calculate rotation speed: one full rotation per health check interval
+  // Speed in radians per millisecond
+  const rotationSpeed = (2 * Math.PI) / healthCheckInterval;
+
+  // Update angle
+  sweepAngle += rotationSpeed * deltaTime;
+
+  // Keep angle in [0, 2π] range
+  if (sweepAngle > 2 * Math.PI) {
+    sweepAngle -= 2 * Math.PI;
+  }
+}
+
+// Draw the sweep line
+export function drawSweepLine(): void {
+  // Save context state
+  ctx.save();
+
+  // Move to center
+  ctx.translate(centerX, centerY);
+
+  // Rotate to current sweep angle (starting from top, going clockwise)
+  // Note: Canvas rotation is clockwise, and 0 radians is to the right
+  // We subtract π/2 to start from the top
+  ctx.rotate(sweepAngle - Math.PI / 2);
+
+  // Create gradient for the sweep line (fading effect)
+  const gradient = ctx.createLinearGradient(0, 0, 0, -maxRadius);
+  gradient.addColorStop(0, "rgba(0, 255, 255, 0.1)"); // Center: faint
+  gradient.addColorStop(0.7, "rgba(0, 255, 255, 0.4)"); // Mid: moderate
+  gradient.addColorStop(1, "rgba(0, 255, 255, 0.8)"); // Edge: bright
+
+  // Draw the sweep line
+  ctx.strokeStyle = gradient;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(0, -maxRadius);
+  ctx.stroke();
+
+  // Draw a brighter glow at the edge
+  ctx.shadowBlur = 10;
+  ctx.shadowColor = "rgba(0, 255, 255, 0.6)";
+  ctx.strokeStyle = "rgba(0, 255, 255, 0.6)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, -maxRadius * 0.9);
+  ctx.lineTo(0, -maxRadius);
+  ctx.stroke();
+
+  // Restore context state
+  ctx.restore();
+}
+
+// Draw pulsating center dot with expanding rings
+export function drawPulsatingCenter(): void {
+  const time = Date.now();
+  const pulseDuration = 2500; // Duration of one complete pulse in milliseconds
+  const maxRingRadius = 15; // Maximum radius before ring fades completely
+  const numberOfRings = 1; // Number of concurrent rings
+
+  // Draw multiple expanding rings at different stages
+  for (let i = 0; i < numberOfRings; i++) {
+    // Offset each ring's timing so they're evenly spaced
+    const ringOffset = (pulseDuration / numberOfRings) * i;
+    const ringProgress = ((time + ringOffset) % pulseDuration) / pulseDuration; // 0 to 1
+
+    // Calculate ring radius (expands from center)
+    const ringRadius = ringProgress * maxRingRadius;
+
+    // Calculate opacity (fades out as it expands)
+    const opacity = (1 - ringProgress) * 0.6; // Start at 0.6, fade to 0
+
+    // Don't draw if too faint
+    if (opacity < 0.05) continue;
+
+    // Draw ring
+    ctx.strokeStyle = `rgba(0, 255, 255, ${opacity})`;
+    ctx.lineWidth = 2;
+    ctx.shadowBlur = 10 * (1 - ringProgress); // Blur fades as ring expands
+    ctx.shadowColor = `rgba(0, 255, 255, ${opacity * 0.5})`;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, ringRadius, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // Reset shadow
+  ctx.shadowBlur = 0;
+
+  // Draw static center point with glow effect
+  // Outer glow
+  ctx.shadowBlur = 50;
+  ctx.shadowColor = "rgba(0, 255, 255, 0.8)";
+  ctx.fillStyle = "rgba(0, 255, 255, 0.3)";
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, 15, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Main center dot (bold and bright)
+  ctx.shadowBlur = 30;
+  ctx.fillStyle = "rgba(0, 255, 255, 1)";
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, 6, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Reset shadow
+  ctx.shadowBlur = 0;
+}

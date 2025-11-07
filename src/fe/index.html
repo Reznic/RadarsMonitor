@@ -12,6 +12,41 @@
         <div class="hud" id="hud">
             <div class="hud-label">SYSTEM STATUS</div>
             <div class="hud-status" id="status">CHECKING...</div>
+
+            <div class="sensor-grid">
+                <div class="sensor-item">
+                    <div class="sensor-label">SENSOR 1</div>
+                    <div class="sensor-status" id="sensor1">...</div>
+                </div>
+                <div class="sensor-item">
+                    <div class="sensor-label">SENSOR 2</div>
+                    <div class="sensor-status" id="sensor2">...</div>
+                </div>
+                <div class="sensor-item">
+                    <div class="sensor-label">SENSOR 3</div>
+                    <div class="sensor-status" id="sensor3">...</div>
+                </div>
+                <div class="sensor-item">
+                    <div class="sensor-label">SENSOR 4</div>
+                    <div class="sensor-status" id="sensor4">...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Debug Menu -->
+        <div class="debug-menu" id="debugMenu">
+            <div class="debug-header">
+                <div class="debug-label">DEBUG MENU</div>
+                <button class="debug-toggle" id="debugToggle">▼</button>
+            </div>
+            <div class="debug-content" id="debugContent">
+                <div class="debug-section">
+                    <div class="debug-section-title">Tooltip Fields</div>
+                    <div class="debug-fields" id="debugFields">
+                        <!-- Checkboxes will be generated dynamically -->
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Radar Display -->

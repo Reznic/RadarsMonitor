@@ -10,17 +10,26 @@ import { cartesianToCanvas } from "./radar.ts";
 
 // DOM elements
 let statusElement: HTMLElement | null;
+let sensorElements: Map<number, HTMLElement> = new Map();
 
 // State
 export const radarDots: RadarDot[] = [];
 export let lastDataReceived: number = Date.now();
 
 // Track history for trail effect
-const trackHistory: Map<number, RadarDot[]> = new Map(); // track_id -> array of positions
+export const trackHistory: Map<number, RadarDot[]> = new Map(); // track_id -> array of positions
 
 // Initialize DOM references
 export function initNetworkDOM(): void {
 	statusElement = document.getElementById("status");
+
+	// Initialize sensor element references
+	for (let i = 1; i <= 4; i++) {
+		const element = document.getElementById(`sensor${i}`);
+		if (element) {
+			sensorElements.set(i, element);
+		}
+	}
 }
 
 // Check if server is responding and clear dots if needed
@@ -37,20 +46,44 @@ async function checkHealth(): Promise<void> {
 		const response: Response = await fetch(`${API_BASE}/health`);
 		const data: HealthResponse = await response.json();
 
+		// Update overall status
 		if (statusElement) {
-			if (data.healthy) {
-				statusElement.textContent = "HEALTHY";
+			if (data.overallHealthy) {
+				statusElement.textContent = "ALL SENSORS OK";
 				statusElement.className = "hud-status healthy";
 			} else {
-				statusElement.textContent = "NOT HEALTHY";
+				const unhealthyCount = data.sensors.filter((s) => !s.healthy).length;
+				statusElement.textContent = `${unhealthyCount} SENSOR${unhealthyCount > 1 ? "S" : ""} DOWN`;
 				statusElement.className = "hud-status unhealthy";
 			}
 		}
+
+		// Update individual sensor statuses
+		for (const sensor of data.sensors) {
+			const sensorElement = sensorElements.get(sensor.id);
+			if (sensorElement) {
+				if (sensor.healthy) {
+					sensorElement.textContent = "OK";
+					sensorElement.className = "sensor-status sensor-ok";
+				} else {
+					sensorElement.textContent = "ERROR";
+					sensorElement.className = "sensor-status sensor-error";
+				}
+			}
+		}
 	} catch (error) {
+		// Update overall status
 		if (statusElement) {
 			statusElement.textContent = "OFFLINE";
 			statusElement.className = "hud-status unhealthy";
 		}
+
+		// Mark all sensors as offline
+		for (const sensorElement of sensorElements.values()) {
+			sensorElement.textContent = "OFFLINE";
+			sensorElement.className = "sensor-status sensor-offline";
+		}
+
 		console.error("Health check failed:", error);
 	}
 }
@@ -76,6 +109,7 @@ async function pollRadarData(): Promise<void> {
 				// Create dot with all necessary data
 				const dot = {
 					track_id: target.track_id,
+					radar_id: target.radar_id,
 					x: target.x,
 					y: target.y,
 					canvasX: canvasPos.x,
