@@ -187,7 +187,8 @@ body {
 }
 
 @keyframes pulse-error {
-	0%, 100% {
+	0%,
+	100% {
 		opacity: 1;
 	}
 	50% {
@@ -258,7 +259,9 @@ body {
 .debug-content {
 	max-height: 400px;
 	overflow-y: auto;
-	transition: max-height 0.3s ease, opacity 0.3s ease;
+	transition:
+		max-height 0.3s ease,
+		opacity 0.3s ease;
 }
 
 .debug-menu.collapsed .debug-content {

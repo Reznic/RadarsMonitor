@@ -1,3 +1,5 @@
+import { HEALTH_CHECK_INTERVAL } from "./config.ts";
+import { initDebugMenu } from "./debugMenu.ts";
 import {
 	checkServerAvailability,
 	initNetworkDOM,
@@ -7,9 +9,16 @@ import {
 	startRadarPolling,
 	trackHistory,
 } from "./network.ts";
-import { drawInactiveRadarAreas, drawPulsatingCenter, drawRadarBase, drawRadarDots, drawRadarTrails, drawSweepLine, initCanvas, updateSweepLine } from "./radar.ts";
-import { initDebugMenu } from "./debugMenu.ts";
-import { HEALTH_CHECK_INTERVAL } from "./config.ts";
+import {
+	drawInactiveRadarAreas,
+	drawPulsatingCenter,
+	drawRadarBase,
+	drawRadarDots,
+	drawRadarTrails,
+	drawSweepLine,
+	initCanvas,
+	updateSweepLine,
+} from "./radar.ts";
 
 // Initialize application
 function init(): void {

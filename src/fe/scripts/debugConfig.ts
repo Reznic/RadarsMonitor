@@ -37,7 +37,10 @@ export function getTooltipConfig(): TooltipFieldConfig {
 }
 
 // Update a specific field
-export function setTooltipField(field: keyof TooltipFieldConfig, enabled: boolean): void {
+export function setTooltipField(
+	field: keyof TooltipFieldConfig,
+	enabled: boolean,
+): void {
 	currentConfig[field] = enabled;
 }
 
@@ -49,7 +52,11 @@ export function resetTooltipConfig(): void {
 // Get all available fields with metadata
 export function getAvailableFields(): TooltipField[] {
 	return [
-		{ key: "show_tooltips", label: "Show Tooltips", enabled: currentConfig.show_tooltips },
+		{
+			key: "show_tooltips",
+			label: "Show Tooltips",
+			enabled: currentConfig.show_tooltips,
+		},
 		{ key: "track_id", label: "Track ID", enabled: currentConfig.track_id },
 		{ key: "class", label: "Class", enabled: currentConfig.class },
 		{ key: "x", label: "X Coordinate", enabled: currentConfig.x },

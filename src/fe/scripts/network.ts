@@ -1,4 +1,8 @@
-import type { RadarDot, RadarsStatusResponse, TracksResponse } from "../../types.ts";
+import type {
+	RadarDot,
+	RadarsStatusResponse,
+	TracksResponse,
+} from "../../types.ts";
 import {
 	API_BASE,
 	HEALTH_CHECK_INTERVAL,
@@ -43,12 +47,12 @@ export function initNetworkDOM(): void {
 
 // Initialize radar control buttons
 function initRadarControls(): void {
-	const buttons = document.querySelectorAll('.sensor-btn');
-	buttons.forEach(button => {
-		button.addEventListener('click', async (e) => {
+	const buttons = document.querySelectorAll(".sensor-btn");
+	buttons.forEach((button) => {
+		button.addEventListener("click", async (e) => {
 			const target = e.target as HTMLButtonElement;
-			const radarId = target.getAttribute('data-radar-id');
-			const action = target.getAttribute('data-action');
+			const radarId = target.getAttribute("data-radar-id");
+			const action = target.getAttribute("data-action");
 
 			if (!radarId || !action) return;
 
@@ -56,9 +60,9 @@ function initRadarControls(): void {
 			target.disabled = true;
 
 			try {
-				if (action === 'on') {
+				if (action === "on") {
 					await turnRadarOn(radarId);
-				} else if (action === 'off') {
+				} else if (action === "off") {
 					await turnRadarOff(radarId);
 				}
 				// Immediately check health after action
@@ -77,9 +81,9 @@ function initRadarControls(): void {
 async function turnRadarOn(radarId: string): Promise<void> {
 	try {
 		const response = await fetch(`${API_BASE}/radar/on`, {
-			method: 'POST',
+			method: "POST",
 			headers: {
-				'Content-Type': 'application/json',
+				"Content-Type": "application/json",
 			},
 			body: JSON.stringify({ radar_id: radarId }),
 		});
@@ -100,9 +104,9 @@ async function turnRadarOn(radarId: string): Promise<void> {
 async function turnRadarOff(radarId: string): Promise<void> {
 	try {
 		const response = await fetch(`${API_BASE}/radar/off`, {
-			method: 'POST',
+			method: "POST",
 			headers: {
-				'Content-Type': 'application/json',
+				"Content-Type": "application/json",
 			},
 			body: JSON.stringify({ radar_id: radarId }),
 		});
@@ -143,7 +147,7 @@ async function checkHealth(): Promise<void> {
 
 		// Count active and inactive radars
 		const radarIds = Object.keys(data);
-		const inactiveRadars = radarIds.filter(id => {
+		const inactiveRadars = radarIds.filter((id) => {
 			const status = data[id];
 			return status && !status.is_active;
 		});
@@ -167,13 +171,14 @@ async function checkHealth(): Promise<void> {
 
 		// Update individual radar statuses (map radars to sensor display slots)
 		let sensorIndex = 1;
-		for (const radarId of radarIds.slice(0, 4)) { // Only show first 4 radars
+		for (const radarId of radarIds.slice(0, 4)) {
+			// Only show first 4 radars
 			const radarStatus = data[radarId];
 			const sensorElement = sensorElements.get(sensorIndex);
 			const azimuthElement = azimuthElements.get(sensorIndex);
 			if (sensorElement && radarStatus) {
 				displayedRadarIds.add(radarId);
-				const radarNumber = radarId.replace(/\D/g, ''); // Extract number from radar ID
+				const radarNumber = radarId.replace(/\D/g, ""); // Extract number from radar ID
 
 				if (radarStatus.is_active) {
 					sensorElement.textContent = `${radarNumber}: ON`;
@@ -186,7 +191,7 @@ async function checkHealth(): Promise<void> {
 				// Update azimuth range display
 				if (azimuthElement) {
 					const orientationAngle = radarStatus.orientation_angle;
-					const startAngle = ((orientationAngle - 35) + 360) % 360; // Handle negative angles
+					const startAngle = (orientationAngle - 35 + 360) % 360; // Handle negative angles
 					const endAngle = (orientationAngle + 35) % 360;
 					azimuthElement.textContent = `${startAngle.toFixed(0)}° - ${endAngle.toFixed(0)}°`;
 					azimuthElement.className = "sensor-azimuth";
@@ -255,7 +260,7 @@ async function pollRadarData(): Promise<void> {
 			// Note: azimuth 0° is typically North (pointing up), increasing clockwise
 			// For standard math: 0° is East (right), increasing counter-clockwise
 			// We need to adjust: math_angle = 90° - azimuth
-			const mathAngleRad = (Math.PI / 2) - azimuthRad;
+			const mathAngleRad = Math.PI / 2 - azimuthRad;
 			const x = trackData.range * Math.cos(mathAngleRad);
 			const y = trackData.range * Math.sin(mathAngleRad);
 
@@ -265,7 +270,7 @@ async function pollRadarData(): Promise<void> {
 			// Create dot with all necessary data
 			const dot: RadarDot = {
 				track_id: trackData.track_id,
-				radar_id: Number.parseInt(radarId.replace(/\D/g, ''), 10) || 0, // Extract number from radar ID
+				radar_id: Number.parseInt(radarId.replace(/\D/g, ""), 10) || 0, // Extract number from radar ID
 				x: x,
 				y: y,
 				canvasX: canvasPos.x,

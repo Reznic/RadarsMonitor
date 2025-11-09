@@ -1,5 +1,9 @@
 // Debug menu UI management
-import { getAvailableFields, setTooltipField } from "./debugConfig.ts";
+import {
+	getAvailableFields,
+	setTooltipField,
+	type TooltipFieldConfig,
+} from "./debugConfig.ts";
 
 let debugMenu: HTMLElement;
 let debugToggle: HTMLButtonElement;
@@ -65,7 +69,7 @@ function renderFieldCheckboxes(): void {
 
 // Handle field checkbox toggle
 function handleFieldToggle(fieldKey: string, enabled: boolean): void {
-	setTooltipField(fieldKey as any, enabled);
+	setTooltipField(fieldKey as keyof TooltipFieldConfig, enabled);
 	saveFieldState(fieldKey, enabled);
 }
 
@@ -107,8 +111,10 @@ function loadDebugMenuState(): void {
 		if (fieldsStr !== null) {
 			const fields = JSON.parse(fieldsStr);
 			for (const [key, enabled] of Object.entries(fields)) {
-				setTooltipField(key as any, enabled as boolean);
-				const checkbox = document.getElementById(`debug-field-${key}`) as HTMLInputElement;
+				setTooltipField(key as keyof TooltipFieldConfig, Boolean(enabled));
+				const checkbox = document.getElementById(
+					`debug-field-${key}`,
+				) as HTMLInputElement;
 				if (checkbox) {
 					checkbox.checked = enabled as boolean;
 				}
