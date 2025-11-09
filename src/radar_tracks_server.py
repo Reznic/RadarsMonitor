@@ -142,7 +142,12 @@ class RadarTracksServer:
 if __name__ == "__main__":
     import time
     import math
-    
+    import os
+
+    # Print environment
+    environment = os.environ.get('ENVIRONMENT', 'unknown')
+    print(f"Running in {environment.upper()} environment")
+
     # Create server instance
     server = RadarTracksServer(port=1337)
     
