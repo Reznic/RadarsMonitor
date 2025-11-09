@@ -11,10 +11,12 @@ import { cartesianToCanvas } from "./radar.ts";
 // DOM elements
 let statusElement: HTMLElement | null;
 const sensorElements: Map<number, HTMLElement> = new Map();
+const azimuthElements: Map<number, HTMLElement> = new Map();
 
 // State
 export const radarDots: RadarDot[] = [];
 export let lastDataReceived: number = Date.now();
+export let radarStatuses: RadarsStatusResponse = {}; // Store radar status data
 
 // Track history for trail effect
 export const trackHistory: Map<number, RadarDot[]> = new Map(); // track_id -> array of positions
@@ -28,6 +30,10 @@ export function initNetworkDOM(): void {
 		const element = document.getElementById(`sensor${i}`);
 		if (element) {
 			sensorElements.set(i, element);
+		}
+		const azimuthElement = document.getElementById(`azimuth${i}`);
+		if (azimuthElement) {
+			azimuthElements.set(i, azimuthElement);
 		}
 	}
 
@@ -132,6 +138,9 @@ async function checkHealth(): Promise<void> {
 
 		const data: RadarsStatusResponse = await response.json();
 
+		// Store radar statuses for visualization
+		radarStatuses = data;
+
 		// Count active and inactive radars
 		const radarIds = Object.keys(data);
 		const inactiveRadars = radarIds.filter(id => {
@@ -161,6 +170,7 @@ async function checkHealth(): Promise<void> {
 		for (const radarId of radarIds.slice(0, 4)) { // Only show first 4 radars
 			const radarStatus = data[radarId];
 			const sensorElement = sensorElements.get(sensorIndex);
+			const azimuthElement = azimuthElements.get(sensorIndex);
 			if (sensorElement && radarStatus) {
 				displayedRadarIds.add(radarId);
 				const radarNumber = radarId.replace(/\D/g, ''); // Extract number from radar ID
@@ -172,6 +182,15 @@ async function checkHealth(): Promise<void> {
 					sensorElement.textContent = `${radarNumber}: OFF`;
 					sensorElement.className = "sensor-status sensor-error";
 				}
+
+				// Update azimuth range display
+				if (azimuthElement) {
+					const orientationAngle = radarStatus.orientation_angle;
+					const startAngle = ((orientationAngle - 35) + 360) % 360; // Handle negative angles
+					const endAngle = (orientationAngle + 35) % 360;
+					azimuthElement.textContent = `${startAngle.toFixed(0)}° - ${endAngle.toFixed(0)}°`;
+					azimuthElement.className = "sensor-azimuth";
+				}
 			}
 			sensorIndex++;
 		}
@@ -182,6 +201,11 @@ async function checkHealth(): Promise<void> {
 			if (sensorElement) {
 				sensorElement.textContent = "---";
 				sensorElement.className = "sensor-status";
+			}
+			const azimuthElement = azimuthElements.get(i);
+			if (azimuthElement) {
+				azimuthElement.textContent = "---";
+				azimuthElement.className = "sensor-azimuth";
 			}
 		}
 	} catch (error) {
@@ -197,6 +221,11 @@ async function checkHealth(): Promise<void> {
 			if (sensorElement) {
 				sensorElement.textContent = "MALFUNCTION";
 				sensorElement.className = "sensor-status sensor-malfunction";
+			}
+			const azimuthElement = azimuthElements.get(i);
+			if (azimuthElement) {
+				azimuthElement.textContent = "---";
+				azimuthElement.className = "sensor-azimuth";
 			}
 		}
 

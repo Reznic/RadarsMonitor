@@ -155,6 +155,24 @@ if __name__ == "__main__":
         is_active=True,
         orientation_angle=45.0
     )
+
+    server.update_radar_status(
+        radar_id="radar2",
+        is_active=True,
+        orientation_angle=135.0
+    )
+
+    server.update_radar_status(
+        radar_id="radar3",
+        is_active=True,
+        orientation_angle=225.0
+    )
+
+    server.update_radar_status(
+        radar_id="radar4",
+        is_active=True,
+        orientation_angle=315.0
+    )
     
     # Simulate a track moving closer
     initial_range = 45.0  # Start at 100m

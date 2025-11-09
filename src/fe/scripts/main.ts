@@ -2,11 +2,12 @@ import {
 	checkServerAvailability,
 	initNetworkDOM,
 	radarDots,
+	radarStatuses,
 	startHealthCheck,
 	startRadarPolling,
 	trackHistory,
 } from "./network.ts";
-import { drawPulsatingCenter, drawRadarBase, drawRadarDots, drawRadarTrails, drawSweepLine, initCanvas, updateSweepLine } from "./radar.ts";
+import { drawInactiveRadarAreas, drawPulsatingCenter, drawRadarBase, drawRadarDots, drawRadarTrails, drawSweepLine, initCanvas, updateSweepLine } from "./radar.ts";
 import { initDebugMenu } from "./debugMenu.ts";
 import { HEALTH_CHECK_INTERVAL } from "./config.ts";
 
@@ -24,6 +25,7 @@ function render(): void {
 	checkServerAvailability();
 	updateSweepLine(HEALTH_CHECK_INTERVAL); // Update sweep line animation
 	drawRadarBase();
+	drawInactiveRadarAreas(radarStatuses); // Draw greyed areas for inactive radars
 	drawSweepLine(); // Draw sweep line after base, before dots
 	drawRadarTrails(trackHistory); // Draw fading trails before current dots
 	drawRadarDots(radarDots);

@@ -1,4 +1,8 @@
-import type { CanvasCoordinates, RadarDot } from "../../types.ts";
+import type {
+  CanvasCoordinates,
+  RadarDot,
+  RadarsStatusResponse,
+} from "../../types.ts";
 import { MAX_DOTS } from "./config.ts";
 import { getTooltipConfig } from "./debugConfig.ts";
 
@@ -199,7 +203,11 @@ function drawDotTooltip(
     texts.push(`Range: ${dot.range ? `${dot.range.toFixed(2)}m` : "?"}`);
   }
   if (config.azimuth) {
-    texts.push(`Azimuth: ${dot.azimuth !== undefined ? `${dot.azimuth.toFixed(1)}°` : "?"}`);
+    texts.push(
+      `Azimuth: ${
+        dot.azimuth !== undefined ? `${dot.azimuth.toFixed(1)}°` : "?"
+      }`
+    );
   }
   if (config.timestamp) {
     texts.push(`Time: ${dot.timestamp || "?"}`);
@@ -250,24 +258,25 @@ export function drawRadarTrails(trackHistory: Map<number, RadarDot[]>): void {
 
     // Get color based on radar_id (use the most recent dot's radar_id)
     const latestDot = history[history.length - 1];
-    const color = getColorForId(latestDot.radar_id || 0);
+    const color = getColorForId(latestDot?.radar_id || 0);
 
     // Draw trail as connected line segments with fading opacity
     for (let i = 0; i < history.length - 1; i++) {
       const current = history[i];
       const next = history[i + 1];
+      if (!current || !next) continue;
 
       // Calculate opacity based on position in history (older = more transparent)
       const progress = i / Math.max(1, history.length - 1);
       const opacity = 0.1 + progress * 0.4; // Range from 0.1 to 0.5
 
       // Draw line segment
-      ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${opacity})`;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(current.canvasX, current.canvasY);
-      ctx.lineTo(next.canvasX, next.canvasY);
-      ctx.stroke();
+      // ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${opacity})`;
+      // ctx.lineWidth = 2;
+      // ctx.beginPath();
+      // ctx.moveTo(current?.canvasX || 0, current?.canvasY || 0);
+      // ctx.lineTo(next?.canvasX || 0, next?.canvasY || 0);
+      // ctx.stroke();
 
       // Draw small dots at each historical position
       ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${opacity})`;
@@ -319,7 +328,7 @@ export function updateSweepLine(healthCheckInterval: number): void {
 
   // Calculate rotation speed: one full rotation per health check interval
   // Speed in radians per millisecond
-  const rotationSpeed = (2 * Math.PI) / healthCheckInterval;
+  const rotationSpeed = (-2 * Math.PI) / healthCheckInterval;
 
   // Update angle
   sweepAngle += rotationSpeed * deltaTime;
@@ -369,6 +378,54 @@ export function drawSweepLine(): void {
 
   // Restore context state
   ctx.restore();
+}
+
+// Draw inactive radar coverage areas
+export function drawInactiveRadarAreas(
+  radarStatuses: RadarsStatusResponse
+): void {
+  // Iterate through all radar statuses
+  for (const [radarId, status] of Object.entries(radarStatuses)) {
+    // Only draw greyed area for inactive radars
+    if (!status.is_active) {
+      const orientationAngle = status.orientation_angle;
+      const coverageSpan = 35; // ±35 degrees
+
+      // Calculate start and end angles in radar coordinates
+      // Radar orientation: 0° is East (right), increases counter-clockwise (standard math convention)
+      const radarStartAngle = orientationAngle - coverageSpan;
+      const radarEndAngle = orientationAngle + coverageSpan;
+
+      // Convert to canvas radians
+      // Radar uses standard math angles: 0° = East, counter-clockwise positive
+      // Canvas angles map directly (Y-axis flip is handled by using anticlockwise=true in arc())
+      // Conversion: canvas_angle = (360 - radar_angle) * π/180
+      const canvasStartAngle = ((360 - radarStartAngle) * Math.PI) / 180;
+      const canvasEndAngle = ((360 - radarEndAngle) * Math.PI) / 180;
+
+      // Draw the greyed coverage wedge
+      ctx.save();
+      ctx.fillStyle = "rgba(100, 100, 100, 0.6)"; // Grey, semi-transparent
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY); // Start at center
+      ctx.arc(
+        centerX,
+        centerY,
+        maxRadius,
+        canvasStartAngle,
+        canvasEndAngle,
+        true
+      );
+      ctx.closePath();
+      ctx.fill();
+
+      // Draw border for the wedge
+      ctx.strokeStyle = "rgba(150, 150, 150, 0.5)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
 }
 
 // Draw pulsating center dot with expanding rings
