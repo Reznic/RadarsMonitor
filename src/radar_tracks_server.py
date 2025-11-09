@@ -177,7 +177,7 @@ if __name__ == "__main__":
     # Simulate a track moving closer
     initial_range = 45.0  # Start at 100m
     final_range = 5.0     # End at 5m
-    samples = 200
+    samples = 100
     
     # Calculate range decrease per step
     range_step = (initial_range - final_range) / samples

@@ -228,6 +228,30 @@ function drawDotTooltip(
   const tooltipWidth: number = maxWidth + padding * 2;
   const tooltipHeight: number = texts.length * lineHeight + padding * 2;
 
+  // Adjust tooltip position to keep it within canvas bounds
+  let finalTooltipX = tooltipX;
+  let finalTooltipY = tooltipY;
+
+  // Check left edge
+  if (finalTooltipX < 0) {
+    finalTooltipX = 15; // 15px margin from edge
+  }
+
+  // Check top edge
+  if (finalTooltipY < 0) {
+    finalTooltipY = 15; // 15px margin from edge
+  }
+
+  // Check right edge
+  if (finalTooltipX + 1.5 * tooltipWidth > width) {
+    finalTooltipX = dot.canvasX - tooltipWidth - tooltipOffset - 15; // 15px margin from edge
+  }
+
+  // Check bottom edge
+  if (finalTooltipY + 1.5 * tooltipHeight > height) {
+    finalTooltipY = height - tooltipHeight - 15; // 15px margin from edge
+  }
+
   // Draw tooltip background
   ctx.fillStyle = `rgba(10, 14, 39, ${0.9 * opacity})`;
   ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${
@@ -235,7 +259,7 @@ function drawDotTooltip(
   })`;
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.roundRect(tooltipX, tooltipY, tooltipWidth, tooltipHeight, 3);
+  ctx.roundRect(finalTooltipX, finalTooltipY, tooltipWidth, tooltipHeight, 3);
   ctx.fill();
   ctx.stroke();
 
@@ -245,8 +269,8 @@ function drawDotTooltip(
   texts.forEach((text, i) => {
     ctx.fillText(
       text,
-      tooltipX + padding,
-      tooltipY + padding + lineHeight * (i + 1) - 2
+      finalTooltipX + padding,
+      finalTooltipY + padding + lineHeight * (i + 1) - 2
     );
   });
 }
