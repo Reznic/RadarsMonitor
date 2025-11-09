@@ -198,13 +198,8 @@ function drawDotTooltip(
   if (config.range) {
     texts.push(`Range: ${dot.range ? `${dot.range.toFixed(2)}m` : "?"}`);
   }
-  if (config.velocity) {
-    texts.push(`V: ${dot.velocity ? `${dot.velocity.toFixed(1)}m/s` : "?"}`);
-  }
-  if (config.doppler) {
-    texts.push(
-      `Doppler: ${dot.doppler !== undefined ? dot.doppler.toFixed(2) : "?"}`
-    );
+  if (config.azimuth) {
+    texts.push(`Azimuth: ${dot.azimuth !== undefined ? `${dot.azimuth.toFixed(1)}°` : "?"}`);
   }
   if (config.timestamp) {
     texts.push(`Time: ${dot.timestamp || "?"}`);

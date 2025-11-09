@@ -30,8 +30,10 @@ body {
 	padding: 20px 35px;
 	backdrop-filter: blur(10px);
 	box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
-	z-index: 10;
+	z-index: 100;
 	min-width: 240px;
+	max-height: calc(100vh - 40px);
+	overflow-y: auto;
 }
 
 .hud-label {
@@ -110,6 +112,70 @@ body {
 	background: rgba(255, 255, 255, 0.05);
 }
 
+.sensor-malfunction {
+	color: #ffaa00;
+	background: rgba(255, 170, 0, 0.1);
+	text-shadow: 0 0 8px rgba(255, 170, 0, 0.4);
+	animation: pulse-error 1.5s ease-in-out infinite;
+}
+
+/* Sensor Controls */
+.sensor-controls {
+	display: flex;
+	gap: 6px;
+	margin-top: 6px;
+}
+
+.sensor-btn {
+	flex: 1;
+	padding: 5px 8px;
+	font-size: 11px;
+	font-weight: bold;
+	letter-spacing: 1px;
+	border: 1px solid;
+	border-radius: 4px;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.sensor-btn-on {
+	color: #00ff88;
+	background: rgba(0, 255, 136, 0.1);
+	border-color: rgba(0, 255, 136, 0.3);
+}
+
+.sensor-btn-on:hover {
+	background: rgba(0, 255, 136, 0.2);
+	border-color: rgba(0, 255, 136, 0.5);
+	box-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+}
+
+.sensor-btn-on:active {
+	background: rgba(0, 255, 136, 0.3);
+}
+
+.sensor-btn-off {
+	color: #ff4466;
+	background: rgba(255, 68, 102, 0.1);
+	border-color: rgba(255, 68, 102, 0.3);
+}
+
+.sensor-btn-off:hover {
+	background: rgba(255, 68, 102, 0.2);
+	border-color: rgba(255, 68, 102, 0.5);
+	box-shadow: 0 0 10px rgba(255, 68, 102, 0.3);
+}
+
+.sensor-btn-off:active {
+	background: rgba(255, 68, 102, 0.3);
+}
+
+.sensor-btn:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
 @keyframes pulse-error {
 	0%, 100% {
 		opacity: 1;
@@ -129,9 +195,11 @@ body {
 	border-radius: 8px;
 	backdrop-filter: blur(10px);
 	box-shadow: 0 0 20px rgba(255, 165, 0, 0.2);
-	z-index: 10;
+	z-index: 100;
 	min-width: 250px;
 	max-width: 300px;
+	max-height: calc(100vh - 40px);
+	overflow-y: auto;
 }
 
 .debug-header {
@@ -398,6 +466,11 @@ body {
 	.sensor-status {
 		font-size: 14px;
 		padding: 3px 6px;
+	}
+
+	.sensor-btn {
+		font-size: 10px;
+		padding: 4px 6px;
 	}
 
 	.debug-menu {

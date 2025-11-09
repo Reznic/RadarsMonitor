@@ -60,6 +60,19 @@ Desktop.ini
 .cache/
 .temp/
 
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
 # Optional: Uncomment if you want to ignore data files
 # *.csv
 # data/

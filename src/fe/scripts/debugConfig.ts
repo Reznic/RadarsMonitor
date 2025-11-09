@@ -12,8 +12,7 @@ export interface TooltipFieldConfig {
 	x: boolean;
 	y: boolean;
 	range: boolean;
-	velocity: boolean;
-	doppler: boolean;
+	azimuth: boolean;
 	timestamp: boolean;
 }
 
@@ -25,8 +24,7 @@ const defaultConfig: TooltipFieldConfig = {
 	x: true,
 	y: true,
 	range: true,
-	velocity: true,
-	doppler: false,
+	azimuth: true,
 	timestamp: false,
 };
 
@@ -57,8 +55,7 @@ export function getAvailableFields(): TooltipField[] {
 		{ key: "x", label: "X Coordinate", enabled: currentConfig.x },
 		{ key: "y", label: "Y Coordinate", enabled: currentConfig.y },
 		{ key: "range", label: "Range", enabled: currentConfig.range },
-		{ key: "velocity", label: "Velocity", enabled: currentConfig.velocity },
-		{ key: "doppler", label: "Doppler", enabled: currentConfig.doppler },
+		{ key: "azimuth", label: "Azimuth", enabled: currentConfig.azimuth },
 		{ key: "timestamp", label: "Timestamp", enabled: currentConfig.timestamp },
 	];
 }

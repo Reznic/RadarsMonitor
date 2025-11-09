@@ -1,15 +1,13 @@
 {
 	"name": "simple-radar",
 	"version": "1.0.0",
-	"description": "A simple radar visualization with CSV data integration",
+	"description": "A simple radar visualization with Python backend",
 	"type": "module",
-	"main": "src/be/server.ts",
 	"scripts": {
-		"be": "bun src/be/server.ts",
+		"be": "./venv/bin/python src/radar_tracks_server.py",
 		"fe": "bun src/fe/serve.ts",
-		"dev": "bun src/dev.ts",
-		"prod": "bun src/prod.ts",
-		"start": "bun src/dev.ts",
+		"prod": "bun src/run.ts --prod",
+		"start": "bun src/run.ts",
 		"test": "bun test",
 		"typecheck": "tsc --noEmit",
 		"lint": "biome check .",
@@ -18,7 +16,9 @@
 		"format:fix": "biome format --write .",
 		"check": "biome check .",
 		"check:fix": "biome check --write .",
-		"biome:all": "biome check --write . && biome format --write . && biome lint --write ."
+		"biome:all": "biome check --write . && biome format --write . && biome lint --write .",
+		"python:setup": "python -m venv venv && ./venv/bin/pip install -r requirements.txt",
+		"python:install": "./venv/bin/pip install -r requirements.txt"
 	},
 	"keywords": [
 		"radar",
