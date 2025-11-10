@@ -36,6 +36,57 @@ body {
   overflow-y: auto;
 }
 
+.hud-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.hud-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hud-toggle {
+  background: none;
+  border: none;
+  color: rgba(0, 255, 255, 0.7);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s ease, color 0.2s ease;
+}
+
+.hud-toggle:hover {
+  color: rgba(0, 255, 255, 1);
+}
+
+.hud-content {
+  margin-top: 20px;
+  transition: max-height 0.3s ease, opacity 0.3s ease, margin-top 0.3s ease;
+  max-height: 1000px;
+}
+
+.hud.collapsed .hud-toggle {
+  transform: rotate(-90deg);
+}
+
+.hud.collapsed .hud-content {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  margin-top: 0;
+}
+
 .hud-label {
   font-size: 15px;
   letter-spacing: 2px;
@@ -63,7 +114,6 @@ body {
 
 /* Sensor Grid Styling */
 .sensor-grid {
-  margin-top: 20px;
   padding-top: 15px;
   border-top: 1px solid rgba(0, 255, 255, 0.2);
   display: grid;

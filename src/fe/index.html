@@ -10,10 +10,17 @@
     <div class="container">
       <!-- HUD Display -->
       <div class="hud" id="hud">
-        <div class="hud-label">SYSTEM STATUS</div>
-        <div class="hud-status" id="status">CHECKING...</div>
+        <div class="hud-header" id="hudHeader">
+          <div class="hud-heading">
+            <div class="hud-label">SYSTEM STATUS</div>
+            <div class="hud-status" id="status">CHECKING...</div>
+          </div>
+          <button class="hud-toggle" id="hudToggle">▼</button>
+        </div>
 
-        <div class="sensor-grid" id="sensorGrid"></div>
+        <div class="hud-content" id="hudContent">
+          <div class="sensor-grid" id="sensorGrid"></div>
+        </div>
       </div>
 
       <!-- Debug Menu -->
