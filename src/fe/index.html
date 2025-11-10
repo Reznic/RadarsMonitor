@@ -13,92 +13,7 @@
         <div class="hud-label">SYSTEM STATUS</div>
         <div class="hud-status" id="status">CHECKING...</div>
 
-        <div class="sensor-grid">
-          <div class="sensor-item">
-            <div class="sensor-label">SENSOR 1</div>
-            <div class="sensor-status" id="sensor1">N/A</div>
-            <div class="sensor-azimuth" id="azimuth1">N/A</div>
-            <div class="sensor-controls">
-              <button
-                class="sensor-btn sensor-btn-on"
-                data-radar-id="radar1"
-                data-action="on"
-              >
-                ON
-              </button>
-              <button
-                class="sensor-btn sensor-btn-off"
-                data-radar-id="radar1"
-                data-action="off"
-              >
-                OFF
-              </button>
-            </div>
-          </div>
-          <div class="sensor-item">
-            <div class="sensor-label">SENSOR 2</div>
-            <div class="sensor-status" id="sensor2">N/A</div>
-            <div class="sensor-azimuth" id="azimuth2">N/A</div>
-            <div class="sensor-controls">
-              <button
-                class="sensor-btn sensor-btn-on"
-                data-radar-id="radar2"
-                data-action="on"
-              >
-                ON
-              </button>
-              <button
-                class="sensor-btn sensor-btn-off"
-                data-radar-id="radar2"
-                data-action="off"
-              >
-                OFF
-              </button>
-            </div>
-          </div>
-          <div class="sensor-item">
-            <div class="sensor-label">SENSOR 3</div>
-            <div class="sensor-status" id="sensor3">N/A</div>
-            <div class="sensor-azimuth" id="azimuth3">N/A</div>
-            <div class="sensor-controls">
-              <button
-                class="sensor-btn sensor-btn-on"
-                data-radar-id="radar3"
-                data-action="on"
-              >
-                ON
-              </button>
-              <button
-                class="sensor-btn sensor-btn-off"
-                data-radar-id="radar3"
-                data-action="off"
-              >
-                OFF
-              </button>
-            </div>
-          </div>
-          <div class="sensor-item">
-            <div class="sensor-label">SENSOR 4</div>
-            <div class="sensor-status" id="sensor4">N/A</div>
-            <div class="sensor-azimuth" id="azimuth4">N/A</div>
-            <div class="sensor-controls">
-              <button
-                class="sensor-btn sensor-btn-on"
-                data-radar-id="radar4"
-                data-action="on"
-              >
-                ON
-              </button>
-              <button
-                class="sensor-btn sensor-btn-off"
-                data-radar-id="radar4"
-                data-action="off"
-              >
-                OFF
-              </button>
-            </div>
-          </div>
-        </div>
+        <div class="sensor-grid" id="sensorGrid"></div>
       </div>
 
       <!-- Debug Menu -->
@@ -126,22 +41,6 @@
         <div class="label label-right">RIGHT</div>
         <div class="label label-bottom">BOTTOM</div>
         <div class="label label-left">LEFT</div>
-
-        <!-- Dot Info Tooltip (hidden - tooltips rendered on canvas) -->
-        <div class="dot-info" id="dotInfo" style="display: none">
-          <div class="dot-info-row">
-            <span class="dot-info-label">SIDE:</span>
-            <span class="dot-info-value" id="infoSide">-</span>
-          </div>
-          <div class="dot-info-row">
-            <span class="dot-info-label">DIST:</span>
-            <span class="dot-info-value" id="infoDistance">-</span>
-          </div>
-          <div class="dot-info-row">
-            <span class="dot-info-label">VEL:</span>
-            <span class="dot-info-value" id="infoVelocity">-</span>
-          </div>
-        </div>
       </div>
     </div>
 

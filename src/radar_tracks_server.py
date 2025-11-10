@@ -154,30 +154,21 @@ if __name__ == "__main__":
     # Start the server
     server.start_server()
     
-    # Initialize radar status
-    server.update_radar_status(
-        radar_id="radar1",
-        is_active=True,
-        orientation_angle=45.0
-    )
+    # Initialize eight radars evenly spaced around the circle
+    num_radars = 8
+    sector_size = 360 / num_radars
+    radar_configs = []
 
-    server.update_radar_status(
-        radar_id="radar2",
-        is_active=True,
-        orientation_angle=135.0
-    )
-
-    server.update_radar_status(
-        radar_id="radar3",
-        is_active=True,
-        orientation_angle=225.0
-    )
-
-    server.update_radar_status(
-        radar_id="radar4",
-        is_active=True,
-        orientation_angle=315.0
-    )
+    for idx in range(num_radars):
+        radar_id = f"radar{idx + 1}"
+        # Aim each radar at the center of its sector (e.g., 45°, 135° for four radars)
+        base_orientation = (idx * sector_size + sector_size / 2) % 360
+        radar_configs.append({"id": radar_id, "base_orientation": base_orientation})
+        server.update_radar_status(
+            radar_id=radar_id,
+            is_active=True,
+            orientation_angle=base_orientation
+        )
     
     # Simulate a track moving closer
     initial_range = 45.0  # Start at 100m
@@ -187,63 +178,41 @@ if __name__ == "__main__":
     # Calculate range decrease per step
     range_step = (initial_range - final_range) / samples
     
-    # Simulate small azimuth oscillation using sine wave
-    base_azimuth = 45.0
-    
     try:
         # Endless simulation loop
         while True:
             print("Starting new simulation cycle...")
 
-            # Generate 200 samples
+            # Generate samples for this cycle
             for i in range(samples):
-                # Calculate current range
-                current_range = initial_range - (range_step * i)
+                for radar_index, config in enumerate(radar_configs):
+                    # Offset each radar so they do not move in lockstep
+                    phase_offset = radar_index * 10
+                    current_sample = (i + phase_offset) % samples
 
-                # Add small sine wave variation to azimuth (-5 to +5 degrees)
-                azimuth_variation = 5 * math.sin(i * 2 * math.pi / 50)  # Complete oscillation every 50 samples
-                current_azimuth = base_azimuth + azimuth_variation
+                    # Calculate current range with wrap-around so each radar sweeps repeatedly
+                    current_range = initial_range - (range_step * current_sample)
+                    current_range = max(final_range, current_range)
 
-                # Ensure azimuth stays in 0-359 range
-                current_azimuth = current_azimuth % 360
+                    # Azimuth oscillates gently around each radar's base orientation
+                    azimuth_variation = 5 * math.sin(
+                        (i + radar_index * 12) * 2 * math.pi / 50
+                    )
+                    current_azimuth = (config["base_orientation"] + azimuth_variation) % 360
 
-                # Update track data
-                server.update_radar_data(
-                    radar_id="radar1",
-                    track_id=1,
-                    azimuth=current_azimuth,
-                    range_meters=current_range
-                )
-
-                # Simulate radar status changes
-                # Radar orientation follows a slower oscillation pattern
-                # orientation_angle = 70
-
-                # # Simulate radar going active/inactive every 50 samples
-                # is_active = (i % 50) < 40  # Active for 40 samples, inactive for 10 samples
-
-                # # Update radar status
-                # server.update_radar_status(
-                #     radar_id="radar1",
-                #     is_active=is_active,
-                #     orientation_angle=orientation_angle   # Keep angle in 0-359 range
-                # )
-
-                # Add a second radar with different pattern
-                # second_orientation = 190
-                # server.update_radar_status(
-                #     radar_id="radar2",
-                #     is_active=not is_active,  # Opposite active status of radar1
-                #     orientation_angle=second_orientation
-                # )
+                    # Update track data for this radar
+                    server.update_radar_data(
+                        radar_id=config["id"],
+                        track_id=radar_index + 1,
+                        azimuth=current_azimuth,
+                        range_meters=current_range
+                    )
 
                 # Sleep for a short time to simulate real-time updates
                 time.sleep(0.1)  # Update every 0.1 seconds
 
                 # Print update (optional)
-                print(f"Sample {i+1}/200:")
-                # print(f"  Radar1: Active={is_active}, Orientation={orientation_angle:.1f}°")
-                # print(f"  Radar2: Active={not is_active}, Orientation={second_orientation:.1f}°")
+                print(f"Sample {i + 1}/{samples}:")
 
             print("Simulation cycle completed. Restarting...")
 
