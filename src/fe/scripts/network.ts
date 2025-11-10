@@ -14,8 +14,10 @@ import { cartesianToCanvas } from "./radar.ts";
 
 // DOM elements
 let statusElement: HTMLElement | null;
-const sensorElements: Map<number, HTMLElement> = new Map();
-const azimuthElements: Map<number, HTMLElement> = new Map();
+let sensorGridElement: HTMLElement | null;
+const sensorElements: Map<string, HTMLElement> = new Map();
+const azimuthElements: Map<string, HTMLElement> = new Map();
+let currentSensorOrder: string[] = [];
 
 // State
 export const radarDots: RadarDot[] = [];
@@ -28,18 +30,7 @@ export const trackHistory: Map<number, RadarDot[]> = new Map(); // track_id -> a
 // Initialize DOM references
 export function initNetworkDOM(): void {
 	statusElement = document.getElementById("status");
-
-	// Initialize sensor element references (for radar status display)
-	for (let i = 1; i <= 4; i++) {
-		const element = document.getElementById(`sensor${i}`);
-		if (element) {
-			sensorElements.set(i, element);
-		}
-		const azimuthElement = document.getElementById(`azimuth${i}`);
-		if (azimuthElement) {
-			azimuthElements.set(i, azimuthElement);
-		}
-	}
+	sensorGridElement = document.getElementById("sensorGrid");
 
 	// Initialize radar control button event listeners
 	initRadarControls();
@@ -47,34 +38,120 @@ export function initNetworkDOM(): void {
 
 // Initialize radar control buttons
 function initRadarControls(): void {
-	const buttons = document.querySelectorAll(".sensor-btn");
-	buttons.forEach((button) => {
-		button.addEventListener("click", async (e) => {
-			const target = e.target as HTMLButtonElement;
-			const radarId = target.getAttribute("data-radar-id");
-			const action = target.getAttribute("data-action");
+	if (!sensorGridElement) return;
 
-			if (!radarId || !action) return;
+	sensorGridElement.addEventListener("click", async (event) => {
+		const target = (event.target as HTMLElement)?.closest<HTMLButtonElement>(
+			".sensor-btn",
+		);
 
-			// Disable button during request
-			target.disabled = true;
+		if (!target) return;
 
-			try {
-				if (action === "on") {
-					await turnRadarOn(radarId);
-				} else if (action === "off") {
-					await turnRadarOff(radarId);
-				}
-				// Immediately check health after action
-				await checkHealth();
-			} catch (error) {
-				console.error(`Failed to ${action} radar ${radarId}:`, error);
-			} finally {
-				// Re-enable button
-				target.disabled = false;
+		const radarId = target.getAttribute("data-radar-id");
+		const action = target.getAttribute("data-action");
+
+		if (!radarId || !action) return;
+
+		target.disabled = true;
+
+		try {
+			if (action === "on") {
+				await turnRadarOn(radarId);
+			} else if (action === "off") {
+				await turnRadarOff(radarId);
 			}
-		});
+			await checkHealth();
+		} catch (error) {
+			console.error(`Failed to ${action} radar ${radarId}:`, error);
+		} finally {
+			target.disabled = false;
+		}
 	});
+}
+
+function sortRadarIds(radarIds: string[]): string[] {
+	return radarIds
+		.slice()
+		.sort((a, b) =>
+			a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }),
+		);
+}
+
+function renderSensorGrid(radarIds: string[]): void {
+	if (!sensorGridElement) return;
+
+	const needsUpdate =
+		radarIds.length !== currentSensorOrder.length ||
+		radarIds.some((id, index) => id !== currentSensorOrder[index]);
+
+	if (!needsUpdate) return;
+
+	currentSensorOrder = radarIds.slice();
+	sensorElements.clear();
+	azimuthElements.clear();
+	sensorGridElement.innerHTML = "";
+
+	if (radarIds.length === 0) {
+		const emptyState = document.createElement("div");
+		emptyState.className = "sensor-empty";
+		emptyState.textContent = "No sensors available";
+		sensorGridElement.appendChild(emptyState);
+		return;
+	}
+
+	const fragment = document.createDocumentFragment();
+
+	radarIds.forEach((radarId, index) => {
+		const sensorItem = document.createElement("div");
+		sensorItem.className = "sensor-item";
+		sensorItem.dataset.radarId = radarId;
+
+		const label = document.createElement("div");
+		label.className = "sensor-label";
+		label.textContent = `SENSOR ${index + 1}`;
+
+		const radarIdTag = document.createElement("div");
+		radarIdTag.className = "sensor-id";
+		radarIdTag.textContent = radarId.toUpperCase();
+
+		const statusDiv = document.createElement("div");
+		statusDiv.className = "sensor-status";
+		statusDiv.textContent = "N/A";
+		sensorElements.set(radarId, statusDiv);
+
+		const azimuthDiv = document.createElement("div");
+		azimuthDiv.className = "sensor-azimuth";
+		azimuthDiv.textContent = "N/A";
+		azimuthElements.set(radarId, azimuthDiv);
+
+		const controls = document.createElement("div");
+		controls.className = "sensor-controls";
+		controls.appendChild(createControlButton("on", radarId));
+		controls.appendChild(createControlButton("off", radarId));
+
+		sensorItem.appendChild(label);
+		sensorItem.appendChild(radarIdTag);
+		sensorItem.appendChild(statusDiv);
+		sensorItem.appendChild(azimuthDiv);
+		sensorItem.appendChild(controls);
+		fragment.appendChild(sensorItem);
+	});
+
+	sensorGridElement.appendChild(fragment);
+}
+
+function createControlButton(
+	action: "on" | "off",
+	radarId: string,
+): HTMLButtonElement {
+	const button = document.createElement("button");
+	const actionClass = action === "on" ? "sensor-btn-on" : "sensor-btn-off";
+	button.type = "button";
+	button.className = `sensor-btn ${actionClass}`;
+	button.dataset.radarId = radarId;
+	button.dataset.action = action;
+	button.textContent = action.toUpperCase();
+	return button;
 }
 
 // Turn radar on
@@ -146,11 +223,13 @@ async function checkHealth(): Promise<void> {
 		radarStatuses = data;
 
 		// Count active and inactive radars
-		const radarIds = Object.keys(data);
+		const radarIds = sortRadarIds(Object.keys(data));
 		const inactiveRadars = radarIds.filter((id) => {
 			const status = data[id];
 			return status && !status.is_active;
 		});
+
+		renderSensorGrid(radarIds);
 
 		// Update overall status
 		if (statusElement) {
@@ -166,25 +245,20 @@ async function checkHealth(): Promise<void> {
 			}
 		}
 
-		// Track which radars we've displayed
-		const displayedRadarIds = new Set<string>();
-
-		// Update individual radar statuses (map radars to sensor display slots)
-		let sensorIndex = 1;
-		for (const radarId of radarIds.slice(0, 4)) {
-			// Only show first 4 radars
+		// Update individual radar statuses
+		for (const radarId of radarIds) {
 			const radarStatus = data[radarId];
-			const sensorElement = sensorElements.get(sensorIndex);
-			const azimuthElement = azimuthElements.get(sensorIndex);
+			const sensorElement = sensorElements.get(radarId);
+			const azimuthElement = azimuthElements.get(radarId);
 			if (sensorElement && radarStatus) {
-				displayedRadarIds.add(radarId);
 				const radarNumber = radarId.replace(/\D/g, ""); // Extract number from radar ID
+				const label = radarNumber || radarId.toUpperCase();
 
 				if (radarStatus.is_active) {
-					sensorElement.textContent = `${radarNumber}: ON`;
+					sensorElement.textContent = `${label}: ON`;
 					sensorElement.className = "sensor-status sensor-ok";
 				} else {
-					sensorElement.textContent = `${radarNumber}: OFF`;
+					sensorElement.textContent = `${label}: OFF`;
 					sensorElement.className = "sensor-status sensor-error";
 				}
 
@@ -197,21 +271,6 @@ async function checkHealth(): Promise<void> {
 					azimuthElement.className = "sensor-azimuth";
 				}
 			}
-			sensorIndex++;
-		}
-
-		// Clear remaining sensor slots or mark as unavailable
-		for (let i = sensorIndex; i <= 4; i++) {
-			const sensorElement = sensorElements.get(i);
-			if (sensorElement) {
-				sensorElement.textContent = "---";
-				sensorElement.className = "sensor-status";
-			}
-			const azimuthElement = azimuthElements.get(i);
-			if (azimuthElement) {
-				azimuthElement.textContent = "---";
-				azimuthElement.className = "sensor-azimuth";
-			}
 		}
 	} catch (error) {
 		// Server is unreachable - mark as malfunction
@@ -221,18 +280,14 @@ async function checkHealth(): Promise<void> {
 		}
 
 		// Mark all sensors as malfunction
-		for (let i = 1; i <= 4; i++) {
-			const sensorElement = sensorElements.get(i);
-			if (sensorElement) {
-				sensorElement.textContent = "MALFUNCTION";
-				sensorElement.className = "sensor-status sensor-malfunction";
-			}
-			const azimuthElement = azimuthElements.get(i);
-			if (azimuthElement) {
-				azimuthElement.textContent = "---";
-				azimuthElement.className = "sensor-azimuth";
-			}
-		}
+		sensorElements.forEach((sensorElement) => {
+			sensorElement.textContent = "MALFUNCTION";
+			sensorElement.className = "sensor-status sensor-malfunction";
+		});
+		azimuthElements.forEach((azimuthElement) => {
+			azimuthElement.textContent = "---";
+			azimuthElement.className = "sensor-azimuth";
+		});
 
 		console.error("Health check failed:", error);
 	}

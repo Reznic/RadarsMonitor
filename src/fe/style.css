@@ -71,6 +71,17 @@ body {
 	gap: 12px;
 }
 
+.sensor-empty {
+	grid-column: 1 / -1;
+	padding: 20px 10px;
+	text-align: center;
+	font-size: 12px;
+	letter-spacing: 1px;
+	color: rgba(255, 255, 255, 0.5);
+	border: 1px dashed rgba(0, 255, 255, 0.3);
+	border-radius: 6px;
+}
+
 .sensor-item {
 	display: flex;
 	flex-direction: column;
@@ -82,6 +93,13 @@ body {
 	letter-spacing: 1.5px;
 	color: rgba(255, 255, 255, 0.4);
 	font-weight: 600;
+}
+
+.sensor-id {
+	font-size: 10px;
+	letter-spacing: 1px;
+	color: rgba(0, 255, 255, 0.6);
+	font-weight: 500;
 }
 
 .sensor-status {

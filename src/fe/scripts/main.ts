@@ -43,9 +43,11 @@ function render(): void {
 }
 
 // Handle window resize
-let resizeTimeout: number;
+let resizeTimeout: ReturnType<typeof setTimeout> | undefined;
 window.addEventListener("resize", () => {
-	clearTimeout(resizeTimeout);
+	if (resizeTimeout) {
+		clearTimeout(resizeTimeout);
+	}
 	resizeTimeout = setTimeout(() => {
 		initCanvas(); // Reinitialize canvas with new dimensions
 	}, 250);
