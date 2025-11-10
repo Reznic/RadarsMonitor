@@ -42,7 +42,15 @@ simple-radar/
 
 ## How to Run
 
-### Quick Start (Single Command)
+### Initial Setup
+
+First time setup (creates Python venv and installs dependencies):
+```bash
+bun install
+bun run python:setup
+```
+
+### Development Mode (default)
 
 ```bash
 bun run dev
@@ -50,19 +58,29 @@ bun run dev
 bun start
 ```
 
-This starts both the backend (port 1337) and frontend (port 8000) servers in a single terminal with color-coded output.
+This starts both the Python backend (port 5000) and frontend (port 8000) servers with color-coded output.
 
 Then open your browser to: **http://localhost:8000**
 
 Press `Ctrl+C` to stop both servers.
 
+### Production Mode
+
+```bash
+bun run prod
+# or
+bun src/run.ts --prod
+```
+
 ### Alternative: Run Separately
 
 If you prefer to run servers in separate terminals:
 
-**Terminal 1 - Backend:**
+**Terminal 1 - Backend (Python):**
 ```bash
 bun run be
+# or
+./venv/bin/python src/radar_tracks_server.py
 ```
 
 **Terminal 2 - Frontend:**
@@ -74,25 +92,31 @@ bun run fe
 
 ## API Endpoints
 
-- `GET /health` - Returns server health status (random true/false)
-- `GET /radar` - Returns current targets from CSV playback
+- `GET /tracks` - Returns current track data for all radars
+- `GET /radars_status` - Returns status for all radars
+- `POST /radar/on` - Turn a radar on (requires `radar_id` in body)
+- `POST /radar/off` - Turn a radar off (requires `radar_id` in body)
 
-### Radar Response Format
+### Tracks Response Format
 
 ```json
 {
-  "targets": [
-    {
-      "track_id": 1,
-      "timestamp": 2.7,
-      "x": 2.5,
-      "y": 8.1,
-      "velocity": 0.7,
-      "doppler": -0.7,
-      "range": 9,
-      "class": "Human"
-    }
-  ]
+  "radar1": {
+    "track_id": 1,
+    "azimuth": 45.0,
+    "range": 25.5
+  }
+}
+```
+
+### Radar Status Response Format
+
+```json
+{
+  "radar1": {
+    "is_active": true,
+    "orientation_angle": 70.0
+  }
 }
 ```
 
@@ -123,6 +147,7 @@ The `trks.csv` file contains tracking information with the following key fields:
 
 ## Technologies
 
-- **Frontend**: Vanilla JavaScript (ES6 modules), HTML5 Canvas, CSS3
-- **Backend**: Bun runtime
-- **No build process required**
+- **Frontend**: TypeScript, HTML5 Canvas, CSS3
+- **Backend**: Python Flask server
+- **Runtime**: Bun (for frontend and dev scripts), Python 3.8+ (for backend)
+- **No build process required** for frontend

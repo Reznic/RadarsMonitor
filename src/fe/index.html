@@ -1,82 +1,150 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Simple Radar</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
     <div class="container">
-        <!-- HUD Display -->
-        <div class="hud" id="hud">
-            <div class="hud-label">SYSTEM STATUS</div>
-            <div class="hud-status" id="status">CHECKING...</div>
+      <!-- HUD Display -->
+      <div class="hud" id="hud">
+        <div class="hud-label">SYSTEM STATUS</div>
+        <div class="hud-status" id="status">CHECKING...</div>
 
-            <div class="sensor-grid">
-                <div class="sensor-item">
-                    <div class="sensor-label">SENSOR 1</div>
-                    <div class="sensor-status" id="sensor1">...</div>
-                </div>
-                <div class="sensor-item">
-                    <div class="sensor-label">SENSOR 2</div>
-                    <div class="sensor-status" id="sensor2">...</div>
-                </div>
-                <div class="sensor-item">
-                    <div class="sensor-label">SENSOR 3</div>
-                    <div class="sensor-status" id="sensor3">...</div>
-                </div>
-                <div class="sensor-item">
-                    <div class="sensor-label">SENSOR 4</div>
-                    <div class="sensor-status" id="sensor4">...</div>
-                </div>
+        <div class="sensor-grid">
+          <div class="sensor-item">
+            <div class="sensor-label">SENSOR 1</div>
+            <div class="sensor-status" id="sensor1">N/A</div>
+            <div class="sensor-azimuth" id="azimuth1">N/A</div>
+            <div class="sensor-controls">
+              <button
+                class="sensor-btn sensor-btn-on"
+                data-radar-id="radar1"
+                data-action="on"
+              >
+                ON
+              </button>
+              <button
+                class="sensor-btn sensor-btn-off"
+                data-radar-id="radar1"
+                data-action="off"
+              >
+                OFF
+              </button>
             </div>
+          </div>
+          <div class="sensor-item">
+            <div class="sensor-label">SENSOR 2</div>
+            <div class="sensor-status" id="sensor2">N/A</div>
+            <div class="sensor-azimuth" id="azimuth2">N/A</div>
+            <div class="sensor-controls">
+              <button
+                class="sensor-btn sensor-btn-on"
+                data-radar-id="radar2"
+                data-action="on"
+              >
+                ON
+              </button>
+              <button
+                class="sensor-btn sensor-btn-off"
+                data-radar-id="radar2"
+                data-action="off"
+              >
+                OFF
+              </button>
+            </div>
+          </div>
+          <div class="sensor-item">
+            <div class="sensor-label">SENSOR 3</div>
+            <div class="sensor-status" id="sensor3">N/A</div>
+            <div class="sensor-azimuth" id="azimuth3">N/A</div>
+            <div class="sensor-controls">
+              <button
+                class="sensor-btn sensor-btn-on"
+                data-radar-id="radar3"
+                data-action="on"
+              >
+                ON
+              </button>
+              <button
+                class="sensor-btn sensor-btn-off"
+                data-radar-id="radar3"
+                data-action="off"
+              >
+                OFF
+              </button>
+            </div>
+          </div>
+          <div class="sensor-item">
+            <div class="sensor-label">SENSOR 4</div>
+            <div class="sensor-status" id="sensor4">N/A</div>
+            <div class="sensor-azimuth" id="azimuth4">N/A</div>
+            <div class="sensor-controls">
+              <button
+                class="sensor-btn sensor-btn-on"
+                data-radar-id="radar4"
+                data-action="on"
+              >
+                ON
+              </button>
+              <button
+                class="sensor-btn sensor-btn-off"
+                data-radar-id="radar4"
+                data-action="off"
+              >
+                OFF
+              </button>
+            </div>
+          </div>
         </div>
+      </div>
 
-        <!-- Debug Menu -->
-        <div class="debug-menu" id="debugMenu">
-            <div class="debug-header">
-                <div class="debug-label">DEBUG MENU</div>
-                <button class="debug-toggle" id="debugToggle">▼</button>
-            </div>
-            <div class="debug-content" id="debugContent">
-                <div class="debug-section">
-                    <div class="debug-section-title">Tooltip Fields</div>
-                    <div class="debug-fields" id="debugFields">
-                        <!-- Checkboxes will be generated dynamically -->
-                    </div>
-                </div>
-            </div>
+      <!-- Debug Menu -->
+      <div class="debug-menu" id="debugMenu">
+        <div class="debug-header">
+          <div class="debug-label">DEBUG MENU</div>
+          <button class="debug-toggle" id="debugToggle">▼</button>
         </div>
-
-        <!-- Radar Display -->
-        <div class="radar-container">
-            <canvas id="radar"></canvas>
-
-            <!-- Side Labels -->
-            <div class="label label-top">TOP</div>
-            <div class="label label-right">RIGHT</div>
-            <div class="label label-bottom">BOTTOM</div>
-            <div class="label label-left">LEFT</div>
-
-            <!-- Dot Info Tooltip (hidden - tooltips rendered on canvas) -->
-            <div class="dot-info" id="dotInfo" style="display: none;">
-                <div class="dot-info-row">
-                    <span class="dot-info-label">SIDE:</span>
-                    <span class="dot-info-value" id="infoSide">-</span>
-                </div>
-                <div class="dot-info-row">
-                    <span class="dot-info-label">DIST:</span>
-                    <span class="dot-info-value" id="infoDistance">-</span>
-                </div>
-                <div class="dot-info-row">
-                    <span class="dot-info-label">VEL:</span>
-                    <span class="dot-info-value" id="infoVelocity">-</span>
-                </div>
+        <div class="debug-content" id="debugContent">
+          <div class="debug-section">
+            <div class="debug-section-title">Tooltip Fields</div>
+            <div class="debug-fields" id="debugFields">
+              <!-- Checkboxes will be generated dynamically -->
             </div>
+          </div>
         </div>
+      </div>
+
+      <!-- Radar Display -->
+      <div class="radar-container">
+        <canvas id="radar"></canvas>
+
+        <!-- Side Labels -->
+        <div class="label label-top">TOP</div>
+        <div class="label label-right">RIGHT</div>
+        <div class="label label-bottom">BOTTOM</div>
+        <div class="label label-left">LEFT</div>
+
+        <!-- Dot Info Tooltip (hidden - tooltips rendered on canvas) -->
+        <div class="dot-info" id="dotInfo" style="display: none">
+          <div class="dot-info-row">
+            <span class="dot-info-label">SIDE:</span>
+            <span class="dot-info-value" id="infoSide">-</span>
+          </div>
+          <div class="dot-info-row">
+            <span class="dot-info-label">DIST:</span>
+            <span class="dot-info-value" id="infoDistance">-</span>
+          </div>
+          <div class="dot-info-row">
+            <span class="dot-info-label">VEL:</span>
+            <span class="dot-info-value" id="infoVelocity">-</span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <script type="module" src="scripts/main.ts"></script>
-</body>
+  </body>
 </html>

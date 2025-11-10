@@ -12,8 +12,7 @@ export interface TooltipFieldConfig {
 	x: boolean;
 	y: boolean;
 	range: boolean;
-	velocity: boolean;
-	doppler: boolean;
+	azimuth: boolean;
 	timestamp: boolean;
 }
 
@@ -25,8 +24,7 @@ const defaultConfig: TooltipFieldConfig = {
 	x: true,
 	y: true,
 	range: true,
-	velocity: true,
-	doppler: false,
+	azimuth: true,
 	timestamp: false,
 };
 
@@ -39,7 +37,10 @@ export function getTooltipConfig(): TooltipFieldConfig {
 }
 
 // Update a specific field
-export function setTooltipField(field: keyof TooltipFieldConfig, enabled: boolean): void {
+export function setTooltipField(
+	field: keyof TooltipFieldConfig,
+	enabled: boolean,
+): void {
 	currentConfig[field] = enabled;
 }
 
@@ -51,14 +52,17 @@ export function resetTooltipConfig(): void {
 // Get all available fields with metadata
 export function getAvailableFields(): TooltipField[] {
 	return [
-		{ key: "show_tooltips", label: "Show Tooltips", enabled: currentConfig.show_tooltips },
+		{
+			key: "show_tooltips",
+			label: "Show Tooltips",
+			enabled: currentConfig.show_tooltips,
+		},
 		{ key: "track_id", label: "Track ID", enabled: currentConfig.track_id },
 		{ key: "class", label: "Class", enabled: currentConfig.class },
 		{ key: "x", label: "X Coordinate", enabled: currentConfig.x },
 		{ key: "y", label: "Y Coordinate", enabled: currentConfig.y },
 		{ key: "range", label: "Range", enabled: currentConfig.range },
-		{ key: "velocity", label: "Velocity", enabled: currentConfig.velocity },
-		{ key: "doppler", label: "Doppler", enabled: currentConfig.doppler },
+		{ key: "azimuth", label: "Azimuth", enabled: currentConfig.azimuth },
 		{ key: "timestamp", label: "Timestamp", enabled: currentConfig.timestamp },
 	];
 }

@@ -1,4 +1,8 @@
-import type { HealthResponse, RadarDot, RadarResponse } from "../../types.ts";
+import type {
+	RadarDot,
+	RadarsStatusResponse,
+	TracksResponse,
+} from "../../types.ts";
 import {
 	API_BASE,
 	HEALTH_CHECK_INTERVAL,
@@ -10,11 +14,13 @@ import { cartesianToCanvas } from "./radar.ts";
 
 // DOM elements
 let statusElement: HTMLElement | null;
-let sensorElements: Map<number, HTMLElement> = new Map();
+const sensorElements: Map<number, HTMLElement> = new Map();
+const azimuthElements: Map<number, HTMLElement> = new Map();
 
 // State
 export const radarDots: RadarDot[] = [];
 export let lastDataReceived: number = Date.now();
+export let radarStatuses: RadarsStatusResponse = {}; // Store radar status data
 
 // Track history for trail effect
 export const trackHistory: Map<number, RadarDot[]> = new Map(); // track_id -> array of positions
@@ -23,12 +29,97 @@ export const trackHistory: Map<number, RadarDot[]> = new Map(); // track_id -> a
 export function initNetworkDOM(): void {
 	statusElement = document.getElementById("status");
 
-	// Initialize sensor element references
+	// Initialize sensor element references (for radar status display)
 	for (let i = 1; i <= 4; i++) {
 		const element = document.getElementById(`sensor${i}`);
 		if (element) {
 			sensorElements.set(i, element);
 		}
+		const azimuthElement = document.getElementById(`azimuth${i}`);
+		if (azimuthElement) {
+			azimuthElements.set(i, azimuthElement);
+		}
+	}
+
+	// Initialize radar control button event listeners
+	initRadarControls();
+}
+
+// Initialize radar control buttons
+function initRadarControls(): void {
+	const buttons = document.querySelectorAll(".sensor-btn");
+	buttons.forEach((button) => {
+		button.addEventListener("click", async (e) => {
+			const target = e.target as HTMLButtonElement;
+			const radarId = target.getAttribute("data-radar-id");
+			const action = target.getAttribute("data-action");
+
+			if (!radarId || !action) return;
+
+			// Disable button during request
+			target.disabled = true;
+
+			try {
+				if (action === "on") {
+					await turnRadarOn(radarId);
+				} else if (action === "off") {
+					await turnRadarOff(radarId);
+				}
+				// Immediately check health after action
+				await checkHealth();
+			} catch (error) {
+				console.error(`Failed to ${action} radar ${radarId}:`, error);
+			} finally {
+				// Re-enable button
+				target.disabled = false;
+			}
+		});
+	});
+}
+
+// Turn radar on
+async function turnRadarOn(radarId: string): Promise<void> {
+	try {
+		const response = await fetch(`${API_BASE}/radar/on`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({ radar_id: radarId }),
+		});
+
+		if (!response.ok) {
+			throw new Error(`HTTP error! status: ${response.status}`);
+		}
+
+		const data = await response.json();
+		console.log(`Radar ${radarId} turned on:`, data);
+	} catch (error) {
+		console.error(`Error turning radar ${radarId} on:`, error);
+		throw error;
+	}
+}
+
+// Turn radar off
+async function turnRadarOff(radarId: string): Promise<void> {
+	try {
+		const response = await fetch(`${API_BASE}/radar/off`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({ radar_id: radarId }),
+		});
+
+		if (!response.ok) {
+			throw new Error(`HTTP error! status: ${response.status}`);
+		}
+
+		const data = await response.json();
+		console.log(`Radar ${radarId} turned off:`, data);
+	} catch (error) {
+		console.error(`Error turning radar ${radarId} off:`, error);
+		throw error;
 	}
 }
 
@@ -40,59 +131,118 @@ export function checkServerAvailability(): void {
 	}
 }
 
-// Health check function
+// Health check function (now using /radars_status endpoint)
 async function checkHealth(): Promise<void> {
 	try {
-		const response: Response = await fetch(`${API_BASE}/health`);
-		const data: HealthResponse = await response.json();
+		const response: Response = await fetch(`${API_BASE}/radars_status`);
+
+		if (!response.ok) {
+			throw new Error(`HTTP error! status: ${response.status}`);
+		}
+
+		const data: RadarsStatusResponse = await response.json();
+
+		// Store radar statuses for visualization
+		radarStatuses = data;
+
+		// Count active and inactive radars
+		const radarIds = Object.keys(data);
+		const inactiveRadars = radarIds.filter((id) => {
+			const status = data[id];
+			return status && !status.is_active;
+		});
 
 		// Update overall status
 		if (statusElement) {
-			if (data.overallHealthy) {
-				statusElement.textContent = "ALL SENSORS OK";
+			if (inactiveRadars.length === 0 && radarIds.length > 0) {
+				statusElement.textContent = "ALL RADARS OK";
 				statusElement.className = "hud-status healthy";
+			} else if (radarIds.length === 0) {
+				statusElement.textContent = "NO RADARS";
+				statusElement.className = "hud-status unhealthy";
 			} else {
-				const unhealthyCount = data.sensors.filter((s) => !s.healthy).length;
-				statusElement.textContent = `${unhealthyCount} SENSOR${unhealthyCount > 1 ? "S" : ""} DOWN`;
+				statusElement.textContent = `${inactiveRadars.length} RADAR${inactiveRadars.length > 1 ? "S" : ""} DOWN`;
 				statusElement.className = "hud-status unhealthy";
 			}
 		}
 
-		// Update individual sensor statuses
-		for (const sensor of data.sensors) {
-			const sensorElement = sensorElements.get(sensor.id);
-			if (sensorElement) {
-				if (sensor.healthy) {
-					sensorElement.textContent = "OK";
+		// Track which radars we've displayed
+		const displayedRadarIds = new Set<string>();
+
+		// Update individual radar statuses (map radars to sensor display slots)
+		let sensorIndex = 1;
+		for (const radarId of radarIds.slice(0, 4)) {
+			// Only show first 4 radars
+			const radarStatus = data[radarId];
+			const sensorElement = sensorElements.get(sensorIndex);
+			const azimuthElement = azimuthElements.get(sensorIndex);
+			if (sensorElement && radarStatus) {
+				displayedRadarIds.add(radarId);
+				const radarNumber = radarId.replace(/\D/g, ""); // Extract number from radar ID
+
+				if (radarStatus.is_active) {
+					sensorElement.textContent = `${radarNumber}: ON`;
 					sensorElement.className = "sensor-status sensor-ok";
 				} else {
-					sensorElement.textContent = "ERROR";
+					sensorElement.textContent = `${radarNumber}: OFF`;
 					sensorElement.className = "sensor-status sensor-error";
 				}
+
+				// Update azimuth range display
+				if (azimuthElement) {
+					const orientationAngle = radarStatus.orientation_angle;
+					const startAngle = (orientationAngle - 35 + 360) % 360; // Handle negative angles
+					const endAngle = (orientationAngle + 35) % 360;
+					azimuthElement.textContent = `${startAngle.toFixed(0)}° - ${endAngle.toFixed(0)}°`;
+					azimuthElement.className = "sensor-azimuth";
+				}
+			}
+			sensorIndex++;
+		}
+
+		// Clear remaining sensor slots or mark as unavailable
+		for (let i = sensorIndex; i <= 4; i++) {
+			const sensorElement = sensorElements.get(i);
+			if (sensorElement) {
+				sensorElement.textContent = "---";
+				sensorElement.className = "sensor-status";
+			}
+			const azimuthElement = azimuthElements.get(i);
+			if (azimuthElement) {
+				azimuthElement.textContent = "---";
+				azimuthElement.className = "sensor-azimuth";
 			}
 		}
 	} catch (error) {
-		// Update overall status
+		// Server is unreachable - mark as malfunction
 		if (statusElement) {
-			statusElement.textContent = "OFFLINE";
+			statusElement.textContent = "MALFUNCTION";
 			statusElement.className = "hud-status unhealthy";
 		}
 
-		// Mark all sensors as offline
-		for (const sensorElement of sensorElements.values()) {
-			sensorElement.textContent = "OFFLINE";
-			sensorElement.className = "sensor-status sensor-offline";
+		// Mark all sensors as malfunction
+		for (let i = 1; i <= 4; i++) {
+			const sensorElement = sensorElements.get(i);
+			if (sensorElement) {
+				sensorElement.textContent = "MALFUNCTION";
+				sensorElement.className = "sensor-status sensor-malfunction";
+			}
+			const azimuthElement = azimuthElements.get(i);
+			if (azimuthElement) {
+				azimuthElement.textContent = "---";
+				azimuthElement.className = "sensor-azimuth";
+			}
 		}
 
 		console.error("Health check failed:", error);
 	}
 }
 
-// Radar data polling function
+// Radar data polling function (now using /tracks endpoint)
 async function pollRadarData(): Promise<void> {
 	try {
-		const response: Response = await fetch(`${API_BASE}/radar`);
-		const data: RadarResponse = await response.json();
+		const response: Response = await fetch(`${API_BASE}/tracks`);
+		const data: TracksResponse = await response.json();
 
 		// Update last data received timestamp
 		lastDataReceived = Date.now();
@@ -100,55 +250,64 @@ async function pollRadarData(): Promise<void> {
 		// Clear the current dots array
 		radarDots.length = 0;
 
-		// Process each target from the API
-		if (data.targets && Array.isArray(data.targets)) {
-			data.targets.forEach((target) => {
-				// Convert polar coordinates (x,y give angle via atan2, range gives radial distance) to canvas coordinates
-				const canvasPos = cartesianToCanvas(target.x, target.y, target.range);
+		// Process each radar's track data
+		const currentTrackIds = new Set<number>();
+		for (const [radarId, trackData] of Object.entries(data)) {
+			// Convert azimuth from degrees to radians
+			const azimuthRad = (trackData.azimuth * Math.PI) / 180;
 
-				// Create dot with all necessary data
-				const dot = {
-					track_id: target.track_id,
-					radar_id: target.radar_id,
-					x: target.x,
-					y: target.y,
-					canvasX: canvasPos.x,
-					canvasY: canvasPos.y,
-					velocity: target.velocity,
-					range: target.range,
-					doppler: target.doppler,
-					class: target.class,
-					timestamp: target.timestamp, // Preserve server timestamp (in seconds)
-				};
+			// Convert polar coordinates (azimuth, range) to cartesian (x, y)
+			// Note: azimuth 0° is typically North (pointing up), increasing clockwise
+			// For standard math: 0° is East (right), increasing counter-clockwise
+			// We need to adjust: math_angle = 90° - azimuth
+			const mathAngleRad = Math.PI / 2 - azimuthRad;
+			const x = trackData.range * Math.cos(mathAngleRad);
+			const y = trackData.range * Math.sin(mathAngleRad);
 
-				// Add to current dots
-				radarDots.push(dot);
+			// Convert cartesian to canvas coordinates
+			const canvasPos = cartesianToCanvas(x, y, trackData.range);
 
-				// Update track history for trail effect
-				if (!trackHistory.has(target.track_id)) {
-					trackHistory.set(target.track_id, []);
+			// Create dot with all necessary data
+			const dot: RadarDot = {
+				track_id: trackData.track_id,
+				radar_id: Number.parseInt(radarId.replace(/\D/g, ""), 10) || 0, // Extract number from radar ID
+				x: x,
+				y: y,
+				canvasX: canvasPos.x,
+				canvasY: canvasPos.y,
+				range: trackData.range,
+				azimuth: trackData.azimuth, // Store azimuth in degrees
+				class: "unknown", // Not provided by Python server
+				timestamp: Date.now() / 1000, // Current timestamp in seconds
+			};
+
+			// Add to current dots
+			radarDots.push(dot);
+			currentTrackIds.add(trackData.track_id);
+
+			// Update track history for trail effect
+			if (!trackHistory.has(trackData.track_id)) {
+				trackHistory.set(trackData.track_id, []);
+			}
+			const history = trackHistory.get(trackData.track_id);
+			if (history) {
+				history.push(dot);
+
+				// Limit history size per track
+				if (history.length > MAX_DOTS) {
+					history.shift();
 				}
-				const history = trackHistory.get(target.track_id);
-				if (history) {
-					history.push(dot);
+			}
+		}
 
-					// Limit history size per track
-					if (history.length > MAX_DOTS) {
-						history.shift();
-					}
-				}
-			});
-
-			// Clean up history for tracks that are no longer present
-			const currentTrackIds = new Set(data.targets.map((t) => t.track_id));
-			for (const [trackId, history] of trackHistory.entries()) {
-				if (!currentTrackIds.has(trackId)) {
-					// Track is gone, gradually remove from history
-					if (history.length > 0) {
-						history.shift();
-						if (history.length === 0) {
-							trackHistory.delete(trackId);
-						}
+		// Clean up history for tracks that are no longer present
+		for (const [trackId, history] of trackHistory.entries()) {
+			if (!currentTrackIds.has(trackId)) {
+				// Track is gone, gradually remove from history
+				if (history.length > 0) {
+					history.shift();
+					if (history.length === 0) {
+						trackHistory.delete(trackId);
 					}
 				}
 			}
