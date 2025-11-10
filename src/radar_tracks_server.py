@@ -159,6 +159,13 @@ if __name__ == "__main__":
     sector_size = 360 / num_radars
     radar_configs = []
 
+
+    server.update_radar_status(
+        radar_id="radar0",
+        is_active=True,
+        orientation_angle=150
+    )
+    
     for idx in range(num_radars):
         radar_id = f"radar{idx + 1}"
         # Aim each radar at the center of its sector (e.g., 45°, 135° for four radars)
@@ -169,7 +176,7 @@ if __name__ == "__main__":
             is_active=True,
             orientation_angle=base_orientation
         )
-    
+
     # Simulate a track moving closer
     initial_range = 45.0  # Start at 100m
     final_range = 5.0     # End at 5m
