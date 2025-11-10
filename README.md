@@ -1,6 +1,6 @@
 # Simple Radar
 
-A beautiful radar visualization web application that displays real-time tracking data from CSV files.
+A beautiful radar visualization web application that displays real-time tracking data.
 
 ## Project Structure
 
@@ -18,21 +18,17 @@ simple-radar/
 ├── be/                      # Backend
 │   ├── server.js           # Main server file
 │   ├── config.js           # Server configuration
-│   ├── data/
-│   │   └── csvHandler.js   # CSV data reader and playback
 │   └── routes/
 │       ├── health.js       # Health check endpoint
 │       └── radar.js        # Radar data endpoint
 │
-├── trks.csv                # Source data: tracking information
 └── package.json            # Project metadata
 ```
 
 ## Features
 
-- **CSV Data Integration**: Reads and plays back real tracking data from `trks.csv`
 - **Beautiful Radar Display**: Circular radar with cartesian coordinate mapping
-- **Real-time Playback**: Automatically advances through CSV timestamps every 500ms
+- **Real-time Playback**: Automatically advances timestamps every 50ms
 - **Multi-Target Tracking**: Displays multiple tracked objects simultaneously
 - **Health Monitoring**: System status HUD in top-right corner
 - **Dot Tooltips**: Each radar dot displays track ID, range, and velocity
@@ -122,17 +118,6 @@ bun run fe
   }
 }
 ```
-
-## CSV Data Format
-
-The `trks.csv` file contains tracking information with the following key fields:
-
-- **track_id**: Unique identifier for each tracked object
-- **timestamp**: Time in seconds
-- **x, y**: Cartesian coordinates (meters) from radar origin
-- **doppler**: Doppler velocity (mapped to speed)
-- **range**: Distance from radar (meters)
-- **class**: Object classification (e.g., "Human")
 
 ## Configuration
 

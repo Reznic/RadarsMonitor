@@ -15,9 +15,15 @@ import { cartesianToCanvas } from "./radar.ts";
 // DOM elements
 let statusElement: HTMLElement | null;
 let sensorGridElement: HTMLElement | null;
+let hudElement: HTMLElement | null;
+let hudHeaderElement: HTMLElement | null;
+let hudContentElement: HTMLElement | null;
+let hudToggleButton: HTMLButtonElement | null;
 const sensorElements: Map<string, HTMLElement> = new Map();
 const azimuthElements: Map<string, HTMLElement> = new Map();
 let currentSensorOrder: string[] = [];
+
+const HUD_COLLAPSE_KEY = "hud-menu-collapsed";
 
 // State
 export const radarDots: RadarDot[] = [];
@@ -31,9 +37,60 @@ export const trackHistory: Map<number, RadarDot[]> = new Map(); // track_id -> a
 export function initNetworkDOM(): void {
 	statusElement = document.getElementById("status");
 	sensorGridElement = document.getElementById("sensorGrid");
+	hudElement = document.getElementById("hud");
+	hudHeaderElement = document.getElementById("hudHeader");
+	hudContentElement = document.getElementById("hudContent");
+	hudToggleButton = document.getElementById("hudToggle") as HTMLButtonElement | null;
 
 	// Initialize radar control button event listeners
 	initRadarControls();
+	initHudAccordion();
+}
+
+function initHudAccordion(): void {
+	if (!hudElement || !hudHeaderElement || !hudContentElement) {
+		return;
+	}
+
+	const toggleHudMenu = (): void => {
+		if (!hudElement) return;
+		const collapsed = hudElement.classList.toggle("collapsed");
+		saveHudCollapseState(collapsed);
+	};
+
+	hudHeaderElement.addEventListener("click", toggleHudMenu);
+
+	if (hudToggleButton) {
+		hudToggleButton.addEventListener("click", (event) => {
+			event.stopPropagation();
+			toggleHudMenu();
+		});
+	}
+
+	loadHudCollapseState();
+}
+
+function saveHudCollapseState(collapsed: boolean): void {
+	try {
+		localStorage.setItem(HUD_COLLAPSE_KEY, JSON.stringify(collapsed));
+	} catch (error) {
+		console.warn("Failed to save HUD collapse state", error);
+	}
+}
+
+function loadHudCollapseState(): void {
+	if (!hudElement) return;
+	try {
+		const value = localStorage.getItem(HUD_COLLAPSE_KEY);
+		if (value) {
+			const collapsed = JSON.parse(value);
+			if (collapsed) {
+				hudElement.classList.add("collapsed");
+			}
+		}
+	} catch (error) {
+		console.warn("Failed to load HUD collapse state", error);
+	}
 }
 
 // Initialize radar control buttons
@@ -311,16 +368,14 @@ async function pollRadarData(): Promise<void> {
 			// Convert azimuth from degrees to radians
 			const azimuthRad = (trackData.azimuth * Math.PI) / 180;
 
-			// Convert polar coordinates (azimuth, range) to cartesian (x, y)
-			// Note: azimuth 0° is typically North (pointing up), increasing clockwise
-			// For standard math: 0° is East (right), increasing counter-clockwise
-			// We need to adjust: math_angle = 90° - azimuth
-			const mathAngleRad = Math.PI / 2 - azimuthRad;
-			const x = trackData.range * Math.cos(mathAngleRad);
-			const y = trackData.range * Math.sin(mathAngleRad);
+			// Radar azimuths use screen-style polar coordinates: 0° on the positive Y axis,
+			// increasing clockwise. Convert that to cartesian space (X right, Y up) before
+			// projecting to canvas coordinates.
+			const x = trackData.range * Math.sin(azimuthRad);
+			const y = trackData.range * Math.cos(azimuthRad);
 
 			// Convert cartesian to canvas coordinates
-			const canvasPos = cartesianToCanvas(x, y, trackData.range);
+			const canvasPos = cartesianToCanvas(x, y);
 
 			// Create dot with all necessary data
 			const dot: RadarDot = {
