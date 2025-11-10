@@ -45,6 +45,7 @@ simple-radar/
 ### Initial Setup
 
 First time setup (creates Python venv and installs dependencies):
+
 ```bash
 bun install
 bun run python:setup
@@ -58,9 +59,9 @@ bun run dev
 bun start
 ```
 
-This starts both the Python backend (port 5000) and frontend (port 8000) servers with color-coded output.
+This starts both the Python backend (port 1337) and frontend (port 8001) servers with color-coded output.
 
-Then open your browser to: **http://localhost:8000**
+Then open your browser to: **http://localhost:8001**
 
 Press `Ctrl+C` to stop both servers.
 
@@ -77,6 +78,7 @@ bun src/run.ts --prod
 If you prefer to run servers in separate terminals:
 
 **Terminal 1 - Backend (Python):**
+
 ```bash
 bun run be
 # or
@@ -84,6 +86,7 @@ bun run be
 ```
 
 **Terminal 2 - Frontend:**
+
 ```bash
 bun run fe
 ```
@@ -123,6 +126,7 @@ bun run fe
 ## CSV Data Format
 
 The `trks.csv` file contains tracking information with the following key fields:
+
 - **track_id**: Unique identifier for each tracked object
 - **timestamp**: Time in seconds
 - **x, y**: Cartesian coordinates (meters) from radar origin
@@ -139,11 +143,6 @@ The `trks.csv` file contains tracking information with the following key fields:
 - `RADAR_CHECK_INTERVAL`: Radar data polling interval (ms)
 - `SERVER_TIMEOUT`: Time before clearing dots when server is offline (ms)
 - `MAX_DOTS`: Maximum number of dots to display
-
-### Backend (`be/config.js`)
-
-- `PORT`: Server port
-- `CORS_HEADERS`: CORS configuration
 
 ## Technologies
 
