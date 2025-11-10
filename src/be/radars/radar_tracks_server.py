@@ -1,5 +1,6 @@
-from flask import Flask, jsonify
-from typing import Dict, List, TypedDict
+from flask import Flask, jsonify, request
+from flask_cors import CORS
+from typing import Dict, TypedDict
 import threading
 
 class TrackData(TypedDict):
@@ -12,8 +13,9 @@ class RadarStatus(TypedDict):
     orientation_angle: float
 
 class RadarTracksServer:
-    def __init__(self, host: str = '0.0.0.0', port: int = 5000, radars_manager=None):
+    def __init__(self, host: str = '0.0.0.0', port: int = 1337, radars_manager=None):
         self.app = Flask(__name__)
+        CORS(self.app)  # Enable CORS for all routes
         self.host = host
         self.port = port
         # Dictionary to store radar data: radar_id -> TrackData
@@ -26,6 +28,8 @@ class RadarTracksServer:
         # Register routes
         self.app.route('/tracks', methods=['GET'])(self.get_tracks)
         self.app.route('/radars_status', methods=['GET'])(self.get_radars_status)
+        self.app.route('/radar/on', methods=['POST'])(self.turn_radar_on)
+        self.app.route('/radar/off', methods=['POST'])(self.turn_radar_off)
         
         # Create a thread for the server
         self.server_thread = threading.Thread(target=self.run_server, daemon=True)
@@ -59,7 +63,6 @@ class RadarTracksServer:
     def get_tracks(self):
         """Route handler for /tracks endpoint"""
         all_tracks = {}
-        
         if self.radars_manager:
             # Get tracks from all radars
             with self.radars_manager._radars_lock:
@@ -98,17 +101,70 @@ class RadarTracksServer:
     
     def get_radars_status(self):
         """Route handler for /radars_status endpoint"""
-        all_status = {}
+        all_status: Dict[str, RadarStatus] = {}
         
         if self.radars_manager:
-            # Get tracks from all radars
             with self.radars_manager._radars_lock:
                 for radar_id, radar in self.radars_manager.radars.items():
                     if radar and hasattr(radar, 'get_tracks'):
-                        radar_status = radar.get_and_reset_health()  
-                        if radar_status:
-                            all_status.update(radar_status)
+                        # Get radar health status (returns bool)
+                        is_active = radar.get_data_reception_health()
+                        
+                        # Create RadarStatus structure
+                        radar_status: RadarStatus = {
+                            "is_active": bool(is_active),
+                            "orientation_angle": getattr(radar, 'azimuth', 0.0) or 0.0
+                        }
+                        
+                        # Add to all_status dictionary
+                        all_status[radar_id] = radar_status
+                        
+                        # Debug print
+                        print(f"Radar {radar_id} status: {radar_status}")
+        
         return jsonify(all_status)
+    
+    def turn_radar_on(self):
+        """Route handler for /radar/off POST endpoint"""
+        data = request.get_json()
+        if not data or 'radar_id' not in data:
+            return jsonify({"error": "radar_id is required"}), 400
+            
+        radar_id = data['radar_id']
+        
+        # If radar exists in status, update it; if not, return error
+        if radar_id in self.radar_status:
+            current_angle = self.radar_status[radar_id]['orientation_angle']
+            self.update_radar_status(radar_id, True, current_angle)
+            return jsonify({
+                "message": f"Radar {radar_id} turned on",
+                "status": self.radar_status[radar_id]
+            })
+        else:
+            return jsonify({
+                "error": f"Radar {radar_id} not found"
+            }), 404
+        
+    def turn_radar_off(self):
+        """Route handler for /radar/off POST endpoint"""
+        data = request.get_json()
+        if not data or 'radar_id' not in data:
+            return jsonify({"error": "radar_id is required"}), 400
+            
+        radar_id = data['radar_id']
+        
+        # If radar exists in status, update it; if not, return error
+        if radar_id in self.radar_status:
+            current_angle = self.radar_status[radar_id]['orientation_angle']
+            self.update_radar_status(radar_id, False, current_angle)
+            return jsonify({
+                "message": f"Radar {radar_id} turned off",
+                "status": self.radar_status[radar_id]
+            })
+        else:
+            return jsonify({
+                "error": f"Radar {radar_id} not found"
+            }), 404
     
     def stop_server(self):
         """Stop the server (for cleanup)"""
@@ -121,7 +177,7 @@ if __name__ == "__main__":
     import math
     
     # Create server instance
-    server = RadarTracksServer(port=5000)
+    server = RadarTracksServer(port=1337)
     
     # Start the server
     server.start_server()
