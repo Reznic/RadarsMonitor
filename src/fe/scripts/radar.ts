@@ -171,6 +171,7 @@ function drawDotTooltip(
 	color: { r: number; g: number; b: number },
 ): void {
 	const tooltipOffset: number = 15;
+	const margin: number = 15;
 	const tooltipX: number = dot.canvasX + tooltipOffset;
 	const tooltipY: number = dot.canvasY - tooltipOffset;
 	const padding: number = 10;
@@ -232,24 +233,48 @@ function drawDotTooltip(
 	let finalTooltipX = tooltipX;
 	let finalTooltipY = tooltipY;
 
-	// Check left edge
-	if (finalTooltipX < 0) {
-		finalTooltipX = 15; // 15px margin from edge
+	// Prefer showing tooltip to the right of the dot unless it would overflow.
+	if (finalTooltipX + tooltipWidth + margin > width) {
+		finalTooltipX = dot.canvasX - tooltipWidth - tooltipOffset;
 	}
 
-	// Check top edge
-	if (finalTooltipY < 0) {
-		finalTooltipY = 15; // 15px margin from edge
+	// If left of the screen, clamp to the margin.
+	if (finalTooltipX < margin) {
+		finalTooltipX = margin;
 	}
 
-	// Check right edge
-	if (finalTooltipX + 1.5 * tooltipWidth > width) {
-		finalTooltipX = dot.canvasX - tooltipWidth - tooltipOffset - 15; // 15px margin from edge
+	// Prefer showing tooltip above the dot unless it would overflow off-screen.
+	if (finalTooltipY < margin) {
+		finalTooltipY = dot.canvasY + tooltipOffset;
 	}
 
-	// Check bottom edge
-	if (finalTooltipY + 1.5 * tooltipHeight > height) {
-		finalTooltipY = height - tooltipHeight - 15; // 15px margin from edge
+	// Keep the tooltip entirely inside the canvas bounds after repositioning.
+	if (finalTooltipY + tooltipHeight + margin > height) {
+		finalTooltipY = height - tooltipHeight - margin;
+	}
+	if (finalTooltipY < margin) {
+		finalTooltipY = margin;
+	}
+
+	// Keep tooltip inside the radar circle to avoid being clipped by the bezel overlay.
+	const halfWidth = tooltipWidth / 2;
+	const halfHeight = tooltipHeight / 2;
+	const rectRadius = Math.sqrt(halfWidth * halfWidth + halfHeight * halfHeight);
+	const safeRadius = Math.max(0, maxRadius - margin);
+	let rectCenterX = finalTooltipX + halfWidth;
+	let rectCenterY = finalTooltipY + halfHeight;
+	const dxFromCenter = rectCenterX - centerX;
+	const dyFromCenter = rectCenterY - centerY;
+	const centerDistance = Math.sqrt(
+		dxFromCenter * dxFromCenter + dyFromCenter * dyFromCenter,
+	);
+	const maxCenterDistance = Math.max(0, safeRadius - rectRadius);
+	if (centerDistance > maxCenterDistance && centerDistance !== 0) {
+		const scale = maxCenterDistance / centerDistance;
+		rectCenterX = centerX + dxFromCenter * scale;
+		rectCenterY = centerY + dyFromCenter * scale;
+		finalTooltipX = rectCenterX - halfWidth;
+		finalTooltipY = rectCenterY - halfHeight;
 	}
 
 	// Draw tooltip background
