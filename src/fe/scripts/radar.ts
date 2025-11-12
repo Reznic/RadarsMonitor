@@ -186,12 +186,6 @@ function drawDotTooltip(
   if (config.class) {
     texts.push(`Class: ${dot.class || "?"}`);
   }
-  if (config.x) {
-    texts.push(`X: ${dot.x !== undefined ? dot.x.toFixed(2) : "?"}`);
-  }
-  if (config.y) {
-    texts.push(`Y: ${dot.y !== undefined ? dot.y.toFixed(2) : "?"}`);
-  }
   if (config.range) {
     texts.push(`Range: ${dot.range ? `${dot.range.toFixed(2)}m` : "?"}`);
   }
