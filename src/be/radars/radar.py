@@ -135,10 +135,10 @@ class Radar:
             classified_tracks = [track for track in tracks if track.target_class and track.target_class != 'n']
             if len(classified_tracks) > 0:
                 for track in classified_tracks:
-                    self.rotate_track(track)
+                    #self.rotate_track(track)
                     self.radar_tracks[radar_id] = {
                         "track_id": track.id,
-                        "azimuth": track.median_az,
+                        "azimuth": -track.median_az + self.azimuth,
                         "range": track.range_val
                     }
     

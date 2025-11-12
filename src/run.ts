@@ -48,35 +48,35 @@ log("[RADAR]", colors.magenta, "━".repeat(60));
 console.log("\n");
 
 // Start Python backend server (using venv)
-const backend: ChildProcess = spawn(
-	"./venv/bin/python",
-	["src/radar_tracks_server.py"],
-	{
-		cwd: process.cwd(),
-		stdio: "pipe",
-		env: { ...process.env, ENVIRONMENT: mode },
-	},
-);
-
-backend.stdout?.on("data", (data: Buffer) => {
-	const lines: string[] = data.toString().trim().split("\n");
-	for (const line of lines) {
-		log("[BACKEND]", colors.cyan, line);
-	}
-});
-
-backend.stderr?.on("data", (data: Buffer) => {
-	const lines: string[] = data.toString().trim().split("\n");
-	for (const line of lines) {
-		log("[BACKEND]", colors.red, line);
-	}
-});
-
-backend.on("close", (code: number | null) => {
-	log("[BACKEND]", colors.red, `Process exited with code ${code}`);
-	frontend.kill();
-	process.exit(code || 0);
-});
+//const backend: ChildProcess = spawn(
+//	"./venv/bin/python",
+//	["src/radar_tracks_server.py"],
+//	{
+//		cwd: process.cwd(),
+//		stdio: "pipe",
+//		env: { ...process.env, ENVIRONMENT: mode },
+//	},
+//);
+//
+//backend.stdout?.on("data", (data: Buffer) => {
+//	const lines: string[] = data.toString().trim().split("\n");
+//	for (const line of lines) {
+//		log("[BACKEND]", colors.cyan, line);
+//	}
+//});
+//
+//backend.stderr?.on("data", (data: Buffer) => {
+//	const lines: string[] = data.toString().trim().split("\n");
+//	for (const line of lines) {
+//		log("[BACKEND]", colors.red, line);
+//	}
+//});
+//
+//backend.on("close", (code: number | null) => {
+//	log("[BACKEND]", colors.red, `Process exited with code ${code}`);
+//	frontend.kill();
+//	process.exit(code || 0);
+//});
 
 // Start frontend server
 const frontend: ChildProcess = spawn("bun", ["serve.ts"], {

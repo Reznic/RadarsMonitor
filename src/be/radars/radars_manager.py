@@ -17,7 +17,7 @@ class RadarsManager:
     """Register new radars on the network, and manage their lifecycle"""
     RADAR_AZIMUTH_MAPPING_FILE = "radar_azimuth_mapping.json"
     BOOT_SERVER_PORT = 9090
-    RADAR_SERVER_PORT = 5000
+    RADAR_SERVER_PORT = 1337
     CONFIG_RETRY_COUNT = 3
     UI_TRACKS_UPDATE_FILE = "trks.csv"
     RADARS_FREQ_MARGIN = 0.25  # 250 MHz   to prevent interference between radars

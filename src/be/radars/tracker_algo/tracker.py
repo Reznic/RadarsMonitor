@@ -272,10 +272,10 @@ class ExtendedKalmanTrack_3D:
         return sum(self.doppler_history) / len(self.doppler_history)
 
     def get_median_az(self):
-        np.nanmedian(self.az_history)
+        return np.nanmedian(self.az_history)
 
 def get_az_from_det(det):
-    az = math.degrees(math.atan2(det['y'], det['x']))
+    az = math.degrees(math.atan2(det['y'], det['x'])) - 90
     az = max(-35, az)
     az = min(35, az)
     return az

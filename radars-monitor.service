@@ -1,0 +1,17 @@
+[Unit]
+Description=RadarsMonitor - Radar visualization application
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/bin/bash /home/ideon/RadarsMonitor_2/run.sh
+WorkingDirectory=/home/ideon/RadarsMonitor_2
+StandardOutput=journal
+StandardError=journal
+Restart=on-failure
+RestartSec=10
+User=ideon
+
+[Install]
+WantedBy=multi-user.target
+

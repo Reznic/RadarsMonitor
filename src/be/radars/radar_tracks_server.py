@@ -71,7 +71,7 @@ class RadarTracksServer:
                         radar_tracks = radar.get_tracks()
                         if radar_tracks:
                             all_tracks.update(radar_tracks)
-        
+        print(all_tracks)
         return jsonify(all_tracks)
     
     def start_server(self):
