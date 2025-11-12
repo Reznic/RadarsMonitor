@@ -86,14 +86,6 @@ body {
   margin-top: 0;
 }
 
-.hud-label {
-  font-size: 15px;
-  letter-spacing: 2px;
-  color: rgba(255, 255, 255, 0.5);
-  margin-bottom: 10px;
-  font-weight: 600;
-}
-
 .hud-status {
   font-size: 30px;
   font-weight: bold;
@@ -270,6 +262,41 @@ body {
   }
   50% {
     opacity: 0.6;
+  }
+}
+
+@media (max-width: 1200px) {
+  .hud {
+    padding: 16px 22px;
+    min-width: 200px;
+    max-width: 300px;
+    right: 12px;
+  }
+
+  .hud-status {
+    font-size: 22px;
+  }
+
+  .sensor-grid {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+  }
+
+  .sensor-item {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .sensor-label {
+    font-size: 12px;
+  }
+
+  .sensor-status {
+    font-size: 12px;
+  }
+
+  .sensor-btn {
+    font-size: 11px;
   }
 }
 
@@ -484,10 +511,6 @@ body {
     right: 10px;
     padding: 15px 20px;
     min-width: 180px;
-  }
-
-  .hud-label {
-    font-size: 13px;
   }
 
   .hud-status {
