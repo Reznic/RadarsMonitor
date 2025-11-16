@@ -19,12 +19,14 @@ class Radar:
     CONFIG_RETRY_COUNT = 3
     
     def __init__(self, radar_id: str, host: str, http_port: int, tcp_port: int, 
-                 radar_config: 'RadarConfiguration', azimuth: Optional[float] = None):
+                 radar_config: 'RadarConfiguration', azimuth: Optional[float] = None,
+                 on_tracked_targets_callback: Optional[Callable] = None ):
         self.radar_id = radar_id
         self.config = radar_config
         self.host = host  # ip address of the radar node server
         self.http_port = http_port  # http port of the radar node server
         self.tcp_port = tcp_port  # tcp port for detections data stream
+        self.on_tracked_targets_callback = on_tracked_targets_callback
         # installation azimuth angle of the radar
         if azimuth is None:
             self.azimuth = None
@@ -59,11 +61,11 @@ class Radar:
             [math.sin(azimuth_rad),  math.cos(azimuth_rad)]
         ])
     
-    def configure(self, retries: int) -> bool:
+    def configure(self, retries: int, delay: int = 70) -> bool:
         """Configure the radar with retry logic"""
         config = self.config.get_config()
         #wait for 70 seconds
-        time.sleep(70)
+        time.sleep(delay)
         print(f"sending sensor start for {self.radar_id}")        
         for attempt in range(1, retries + 1):
             try:
@@ -141,6 +143,7 @@ class Radar:
                         "azimuth": -track.median_az + self.azimuth,
                         "range": track.range_val
                     }
+                self.on_tracked_targets_callback(radar_id, classified_tracks)
     
     def get_tracks(self) -> Dict[str, TrackData]:
         """
