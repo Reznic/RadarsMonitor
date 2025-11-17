@@ -1,8 +1,10 @@
-from typing import List, Dict, Callable, Optional
+from typing import List, Dict, Callable, Optional, TypedDict, Union
 import os
 import json
 import threading
 import csv
+import logging
+from datetime import datetime
 from radar_tracks_server import RadarTracksServer
 from radar import Radar, RadarConfiguration
 
@@ -13,13 +15,21 @@ except ImportError:
     flask_available = False
 
 
+class RadarMapping(TypedDict, total=False):
+    """Radar mapping structure with azimuth, x, and y coordinates"""
+    azimuth: float
+    x: float
+    y: float
+
+
 class RadarsManager:
     """Register new radars on the network, and manage their lifecycle"""
     RADAR_AZIMUTH_MAPPING_FILE = "radar_azimuth_mapping.json"
     BOOT_SERVER_PORT = 9090
     RADAR_SERVER_PORT = 1337
     CONFIG_RETRY_COUNT = 3
-    UI_TRACKS_UPDATE_FILE = "trks.csv"
+    CONFIG_DELAY = 0
+    UI_TRACKS_UPDATE_FILE = "Track_Logs/trks.csv"
     RADARS_FREQ_MARGIN = 0.25  # 250 MHz   to prevent interference between radars
     INIT_FREQ = 60  # GHz
     
@@ -27,8 +37,17 @@ class RadarsManager:
         self.radars: Dict[str, Radar] = {}
         self.next_radar_freq = self.INIT_FREQ
         self.radar_config = RadarConfiguration()
-        self.radars_azimuth_mapping: Dict[str, float] = {}
+        # Dictionary mapping radar_id to RadarMapping (azimuth, x, y) or just float (azimuth) for backward compatibility
+        self.radars_azimuth_mapping: Dict[str, Union[RadarMapping, float]] = {}
         self._radars_lock = threading.Lock()
+        
+        # CSV file handling - open once and keep it open
+        self._csv_file = None
+        self._csv_writer = None
+        self._csv_file_lock = threading.Lock()
+        self._csv_write_count = 0
+        self._csv_file_path = None
+        self._setup_csv_file()
         
         self._load_azimuth_mapping(self.RADAR_AZIMUTH_MAPPING_FILE)
         
@@ -41,7 +60,12 @@ class RadarsManager:
 
     def register_radar(self, radar_id: str, host: str, http_port: int, tcp_port: int) -> None:
         """Register a new radar or update an existing one"""
-        azimuth = self.radars_azimuth_mapping.get(radar_id)
+        # Get azimuth from mapping (handle both old format: float, and new format: dict with azimuth)
+        mapping = self.radars_azimuth_mapping.get(radar_id)
+        if isinstance(mapping, dict):
+            azimuth = mapping.get('azimuth')
+        else:
+            azimuth = mapping  # Backward compatibility: just a float
         
         with self._radars_lock:
             if radar_id in self.radars:
@@ -58,23 +82,52 @@ class RadarsManager:
                 http_port=http_port,
                 tcp_port=tcp_port,
                 radar_config=RadarConfiguration(chirp_start_freq=self.next_radar_freq),
-                azimuth=azimuth
+                azimuth=azimuth,
+                on_tracked_targets_callback=self._on_tracked_targets_callback
             )
             self.radars[radar_id] = radar
             self.next_radar_freq += self.RADARS_FREQ_MARGIN
         # Schedule radar start 
         threading.Thread(target=radar.start, name=f"StartRadar-{radar_id}", daemon=True).start()
     
+    def _setup_csv_file(self) -> None:
+        """Setup CSV file for writing tracks - open once and keep it open with timestamp in filename"""
+        try:
+            # Generate filename with timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            base_name = os.path.splitext(self.UI_TRACKS_UPDATE_FILE)[0]  # Remove .csv extension
+            csv_filename = f"{base_name}_{timestamp}.csv"
+            csv_path = os.path.join(os.path.dirname(__file__), csv_filename)
+            
+            # Open in append mode with buffering for better performance
+            self._csv_file = open(csv_path, 'a', newline='', buffering=8192)
+            self._csv_writer = csv.writer(self._csv_file)
+            self._csv_file_path = csv_path  # Store the path for reference
+            print(f"CSV file opened for writing: {csv_path}")
+        except Exception as e:
+            print(f"Error opening CSV file: {e}")
+            self._csv_file = None
+            self._csv_writer = None
+            self._csv_file_path = None
+    
     def _load_azimuth_mapping(self, mapping_file: Optional[str] = None) -> None:
-        """Load radar azimuth angle mapping from a JSON file"""
+        """Load radar azimuth angle mapping from a JSON file
+        
+        Supports two formats:
+        1. Old format: {"radar_id": azimuth_float}
+        2. New format: {"radar_id": {"azimuth": float, "x": float, "y": float}}
+        """
         file_path = mapping_file or self.RADAR_AZIMUTH_MAPPING_FILE
+        loaded_mapping = {}
         
         # Try to load from be/data directory first
         try:
             data_dir_path = os.path.join(os.path.dirname(__file__), file_path)
             if os.path.exists(data_dir_path):
                 with open(data_dir_path, 'r') as f:
-                    self.radars_azimuth_mapping = json.load(f)
+                    loaded_mapping = json.load(f)
+                self.radars_azimuth_mapping = loaded_mapping
+                print(f"Loaded radar mapping from {data_dir_path}")
                 return
         except Exception as e:
             print(f"Warning: Could not load azimuth mapping from {data_dir_path}: {e}")
@@ -83,7 +136,9 @@ class RadarsManager:
         try:
             if os.path.exists(file_path):
                 with open(file_path, 'r') as f:
-                    self.radars_azimuth_mapping = json.load(f)
+                    loaded_mapping = json.load(f)
+                self.radars_azimuth_mapping = loaded_mapping
+                print(f"Loaded radar mapping from {file_path}")
             else:
                 print(f"Warning: Azimuth mapping file not found: {file_path}")
         except Exception as e:
@@ -95,6 +150,11 @@ class RadarsManager:
             raise RuntimeError("Flask is required for boot server: pip install flask")
         
         app = Flask(__name__)
+        
+        @app.route('/ping', methods=['GET'])
+        def ping():
+            """Health check endpoint for adapter nodes to verify manager is ready"""
+            return jsonify({"status": "ok"})
         
         @app.route('/boot', methods=['POST'])
         def boot():
@@ -128,6 +188,10 @@ class RadarsManager:
             resp.headers['Access-Control-Allow-Headers'] = 'Content-Type'
             return resp
         
+        # Disable Werkzeug HTTP request logging
+        log = logging.getLogger('werkzeug')
+        log.setLevel(logging.ERROR)
+        
         # Run Flask server in a separate thread
         self.nodes_boot_server = threading.Thread(
             target=lambda: app.run(host='0.0.0.0', port=port, use_reloader=False),
@@ -141,7 +205,34 @@ class RadarsManager:
     
     def get_radar_azimuth(self, radar_id: str) -> Optional[float]:
         """Get the azimuth angle for a specific radar by its ID"""
-        return self.radars_azimuth_mapping.get(radar_id)
+        mapping = self.radars_azimuth_mapping.get(radar_id)
+        if isinstance(mapping, dict):
+            return mapping.get('azimuth')
+        return mapping  # Backward compatibility: just a float
+    
+    def get_radar_x(self, radar_id: str) -> Optional[float]:
+        """Get the x coordinate for a specific radar by its ID"""
+        mapping = self.radars_azimuth_mapping.get(radar_id)
+        if isinstance(mapping, dict):
+            return mapping.get('x')
+        return None  # Old format doesn't have x
+    
+    def get_radar_y(self, radar_id: str) -> Optional[float]:
+        """Get the y coordinate for a specific radar by its ID"""
+        mapping = self.radars_azimuth_mapping.get(radar_id)
+        if isinstance(mapping, dict):
+            return mapping.get('y')
+        return None  # Old format doesn't have y
+    
+    def get_radar_mapping(self, radar_id: str) -> Optional[RadarMapping]:
+        """Get the complete mapping (azimuth, x, y) for a specific radar by its ID"""
+        mapping = self.radars_azimuth_mapping.get(radar_id)
+        if isinstance(mapping, dict):
+            return mapping
+        elif mapping is not None:
+            # Convert old format to new format
+            return {"azimuth": mapping}
+        return None
 
     def health(self) -> Dict[str, bool]:
         return {radar_id: radar.health() for radar_id, radar in self.radars.items()}
@@ -151,7 +242,7 @@ class RadarsManager:
         if radar_id not in self.radars:
             print(f"Radar {radar_id} not found")
             return False
-        return self.radars[radar_id].configure(self.radar_config, self.CONFIG_RETRY_COUNT)
+        return self.radars[radar_id].configure(self.radar_config, self.CONFIG_RETRY_COUNT, self.CONFIG_DELAY)
 
     def send_command(self, radar_id: str, command: str) -> str:
         """Send a command to a specific radar"""
@@ -173,10 +264,23 @@ class RadarsManager:
             radar.client.start_events(lambda event, data, rid=radar_id: on_event(rid, event, data))
 
     def stop(self) -> None:
-        """Stop all radars"""
+        """Stop all radars and close CSV file"""
         for radar in self.radars.values():
             radar.stop()
         self.radars.clear()
+        
+        # Close CSV file
+        if self._csv_file:
+            try:
+                with self._csv_file_lock:
+                    self._csv_file.flush()
+                    self._csv_file.close()
+                    print("CSV file closed")
+            except Exception as e:
+                print(f"Error closing CSV file: {e}")
+            finally:
+                self._csv_file = None
+                self._csv_writer = None
 
     def join(self) -> None:
         self.nodes_boot_server.join()
@@ -185,7 +289,17 @@ class RadarsManager:
         if tracks:
             classified_tracks = [track for track in tracks if track.target_class and track.target_class != 'n']
             if len(classified_tracks) > 0:
-                self._update_radar_ui_with_tracks(radar_id, classified_tracks)
+                tracks_csv = convert_tracks_to_csv(tracks, radar_id)
+                if tracks_csv and self._csv_writer:
+                    try:
+                        with self._csv_file_lock:
+                            self._csv_writer.writerows(tracks_csv)
+                            self._csv_write_count += 1
+                            # Flush periodically (every 50 writes) instead of every time for better performance
+                            if self._csv_write_count % 50 == 0:
+                                self._csv_file.flush()
+                    except Exception as e:
+                        print(f"Error writing to CSV file: {e}")
 
 
 def convert_tracks_to_csv(tracks, radar_id: Optional[str] = None) -> List[str]:
@@ -203,15 +317,16 @@ def convert_tracks_to_csv(tracks, radar_id: Optional[str] = None) -> List[str]:
         try:
             class_map = {'c': 'Car', 'h': 'Human', 't': 'Truck', 'n': 'None'}
             class_name = class_map.get(track.target_class, 'None')
-            track_csv_data = [f"{track.id}",
+            track_csv_data = [radar_id,
+                              self.radars[radar_id].azimuth,
+                              f"{track.id}",
                               track.last_assoc_timestamp,
                               0,
                               0,
                               0,
                               f"{track.range_val:.2f}",
                               f"{track.get_avg_doppler():.2f}",
-                              f"{track.x:.2f}",
-                              f"{track.y:.2f}",
+                              f"{track.median_az:.2f}",
                               0, 0,0,0, 0, 0, 0, 0, 0, 0, 0, 0,
                               class_name]
             ui_tracks.append(track_csv_data)

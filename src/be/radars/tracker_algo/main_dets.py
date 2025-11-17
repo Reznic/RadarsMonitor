@@ -148,10 +148,10 @@ def send_config(config_file, ser_config):
 def connect_serial():
     ser_config = []
     ser_data = []
-    for i_rdr in range(len(CONFIG_PORTs)):
+    for i_rdr in range(len(CONFIG_PORT)):
         try:
-            ser_config.append(serial.Serial(CONFIG_PORTs[i_rdr], BAUDRATE_CONFIG, timeout=0.5))
-            ser_data.append(serial.Serial(DATA_PORTs[i_rdr], BAUDRATE_DATA, timeout=0.5))
+            ser_config.append(serial.Serial(CONFIG_PORT[i_rdr], BAUDRATE_CONFIG, timeout=0.5))
+            ser_data.append(serial.Serial(DATA_PORT[i_rdr], BAUDRATE_DATA, timeout=0.5))
         except:
             pass
     return ser_config, ser_data

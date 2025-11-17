@@ -255,6 +255,42 @@ def _json_escape(s: str) -> str:
     return _json_escape_str(s)
 
 
+def wait_for_manager_ping(manager_host: str, manager_port: int, retry_interval: int = 2, timeout: Optional[int] = None) -> bool:
+    """Wait for radars_manager to be available by checking ping endpoint.
+    Returns True when manager is available, False if timeout is reached.
+    
+    Args:
+        manager_host: Hostname or IP of the radars_manager
+        manager_port: Port of the radars_manager boot server
+        retry_interval: Seconds between ping attempts
+        timeout: Maximum seconds to wait (None = wait indefinitely)
+    """
+    start_time = time.time()
+    print(f"Waiting for radars_manager at {manager_host}:{manager_port}...")
+    
+    while True:
+        try:
+            url = f"http://{manager_host}:{manager_port}/ping"
+            req = urllib.request.Request(url, method='GET')
+            with urllib.request.urlopen(req, timeout=2) as resp:
+                response = json.loads(resp.read().decode('utf-8'))
+                if response.get('status') == 'ok':
+                    print(f"✓ radars_manager is ready at {manager_host}:{manager_port}")
+                    return True
+        except Exception:
+            # Manager not ready yet, continue waiting
+            pass
+        
+        # Check timeout
+        if timeout is not None:
+            elapsed = time.time() - start_time
+            if elapsed >= timeout:
+                print(f"✗ Timeout waiting for radars_manager after {timeout} seconds")
+                return False
+        
+        time.sleep(retry_interval)
+
+
 def load_radars(manager_host: Optional[str] = None, manager_port: int = 9090) -> None:
     radars = scan_radar_devices()
     # Create a server for each radar device
@@ -302,7 +338,11 @@ def load_radars(manager_host: Optional[str] = None, manager_port: int = 9090) ->
 
 def main():
     radars_manager_ip = argv[1] if len(argv) > 1 else "192.168.1.100"
-    radars_manager_port = argv[1] if len(argv) > 2 else 9090
+    radars_manager_port = int(argv[2]) if len(argv) > 2 else 9090
+    
+    # Wait for radars_manager to be ready before loading radars
+    wait_for_manager_ping(radars_manager_ip, radars_manager_port)
+    
     load_radars(radars_manager_ip, radars_manager_port)
 
 
