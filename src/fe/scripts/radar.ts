@@ -125,11 +125,9 @@ function drawStaticBase(): void {
   baseCtx.beginPath();
   baseCtx.arc(centerX, centerY, maxRadius, 0, Math.PI * 2);
   baseCtx.stroke();
-
-  drawVehicleOverlay();
 }
 
-function drawVehicleOverlay(): void {
+export function drawVehicleOverlay(): void {
   if (!vehicleImage || !vehicleImageLoaded) {
     return;
   }
@@ -144,16 +142,17 @@ function drawVehicleOverlay(): void {
   const imageX = centerX - vehicleWidth / 2;
   const imageY = centerY - vehicleHeight / 2;
 
-  baseCtx.save();
-  baseCtx.globalAlpha = 0.9;
-  baseCtx.imageSmoothingEnabled = true;
-  baseCtx.drawImage(vehicleImage, imageX, imageY, vehicleWidth, vehicleHeight);
-  baseCtx.restore();
+  ctx.save();
+  ctx.globalAlpha = 0.9;
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(vehicleImage, imageX, imageY, vehicleWidth, vehicleHeight);
+  ctx.restore();
 
-  drawVehicleCornerMarkers(imageX, imageY, vehicleWidth, vehicleHeight);
+  drawVehicleCornerMarkers(ctx, imageX, imageY, vehicleWidth, vehicleHeight);
 }
 
 function drawVehicleCornerMarkers(
+  targetCtx: CanvasRenderingContext2D,
   imageX: number,
   imageY: number,
   imageWidth: number,
@@ -188,29 +187,29 @@ function drawVehicleCornerMarkers(
     },
   ];
 
-  baseCtx.save();
-  baseCtx.lineWidth = 2;
-  baseCtx.strokeStyle = "rgba(0, 255, 255, 0.55)";
-  baseCtx.fillStyle = "rgba(0, 255, 255, 0.9)";
-  baseCtx.font = "11px monospace";
-  baseCtx.textAlign = "center";
-  baseCtx.textBaseline = "middle";
+  targetCtx.save();
+  targetCtx.lineWidth = 2;
+  targetCtx.strokeStyle = "rgba(0, 255, 255, 0.55)";
+  targetCtx.fillStyle = "rgba(0, 255, 255, 0.9)";
+  targetCtx.font = "11px monospace";
+  targetCtx.textAlign = "center";
+  targetCtx.textBaseline = "middle";
 
   corners.forEach(({ label, x, y, h, v }) => {
-    baseCtx.beginPath();
-    baseCtx.moveTo(x, y + v * cornerLength);
-    baseCtx.lineTo(x, y);
-    baseCtx.lineTo(x + h * cornerLength, y);
-    baseCtx.stroke();
+    targetCtx.beginPath();
+    targetCtx.moveTo(x, y + v * cornerLength);
+    targetCtx.lineTo(x, y);
+    targetCtx.lineTo(x + h * cornerLength, y);
+    targetCtx.stroke();
 
     const dotX = x;
     const dotY = y;
-    baseCtx.beginPath();
-    baseCtx.arc(dotX, dotY, dotRadius, 0, Math.PI * 2);
-    baseCtx.fill();
+    targetCtx.beginPath();
+    targetCtx.arc(dotX, dotY, dotRadius, 0, Math.PI * 2);
+    targetCtx.fill();
   });
 
-  baseCtx.restore();
+  targetCtx.restore();
 }
 
 // Composite the static base onto main canvas (called each frame)
