@@ -173,8 +173,8 @@ class RadarTracksServer:
                         radar_status: RadarStatus = {
                             "is_active": bool(is_active),
                             "orientation_angle": getattr(radar, 'azimuth', 0.0) or 0.0,
-                            #"x": self.radars_manager.get_radar_mapping(radar_id)['x'],
-                            #"y": self.radars_manager.get_radar_mapping(radar_id)['y']
+                            "x": self.radars_manager.get_radar_mapping(radar_id)['x'],
+                            "y": self.radars_manager.get_radar_mapping(radar_id)['y']
                             }
                         
                         # Add to all_status dictionary
