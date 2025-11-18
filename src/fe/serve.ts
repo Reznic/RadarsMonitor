@@ -1,33 +1,32 @@
+import { join } from "node:path";
+
 // Simple static file server for the frontend with TypeScript transpilation
 const transpiler = new Bun.Transpiler({
   loader: "ts",
   target: "browser",
 });
 
+const rootDir = import.meta.dir;
+
 const server = Bun.serve({
   port: 8001,
 
   async fetch(req: Request): Promise<Response> {
     const url: URL = new URL(req.url);
-    let filePath: string = url.pathname;
-
-    // Default to index.html
-    if (filePath === "/") {
-      filePath = "/index.html";
-    }
+    const requested = url.pathname === "/" ? "index.html" : url.pathname.slice(1);
+    const fullPath = join(rootDir, requested);
 
     try {
-      const fullPath = `.${filePath}`;
+      const file = Bun.file(fullPath);
+      const exists = await file.exists();
+
+      if (!exists) {
+        return new Response("Not Found", { status: 404 });
+      }
 
       // Handle TypeScript files - transpile them to JavaScript
-      if (filePath.endsWith(".ts")) {
-        const file = Bun.file(fullPath);
-        const exists = await file.exists();
-
-        if (!exists) {
-          return new Response("Not Found", { status: 404 });
-        }
-
+      if (requested.endsWith(".ts")) {
+       
         const code = await file.text();
         const transpiled = await transpiler.transform(code);
 
@@ -36,11 +35,9 @@ const server = Bun.serve({
             "Content-Type": "application/javascript",
           },
         });
+      } else {
+        return new Response(file);
       }
-
-      // Serve other files normally
-      const file = Bun.file(fullPath);
-      return new Response(file);
     } catch (error) {
       console.error("Error serving file:", error);
       return new Response("Not Found", { status: 404 });

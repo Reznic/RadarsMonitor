@@ -15,6 +15,10 @@ let width: number,
   centerY: number,
   maxRadius: number;
 
+const VEHICLE_IMAGE_SRC = "assets/namer.png";
+let vehicleImage: HTMLImageElement | null = null;
+let vehicleImageLoaded = false;
+
 // Offscreen canvas for static radar base (optimization)
 let baseCanvas: HTMLCanvasElement;
 let baseCtx: CanvasRenderingContext2D;
@@ -29,6 +33,8 @@ export function initCanvas(): void {
   const context = canvas.getContext("2d");
   if (!context) throw new Error("Failed to get 2D context");
   ctx = context;
+
+  ensureVehicleImageRequested();
 
   // Calculate size based on viewport - use the smaller dimension to keep it circular
   const size = Math.min(window.innerWidth, window.innerHeight) * 0.95; // 95% of viewport
@@ -53,8 +59,28 @@ export function initCanvas(): void {
   drawStaticBase();
 }
 
+function ensureVehicleImageRequested(): void {
+  if (vehicleImage || vehicleImageLoaded) {
+    return;
+  }
+
+  vehicleImage = new Image();
+  vehicleImage.src = VEHICLE_IMAGE_SRC;
+  vehicleImage.onload = () => {
+    vehicleImageLoaded = true;
+    if (baseCtx) {
+      drawStaticBase();
+    }
+  };
+  vehicleImage.onerror = (error) => {
+    console.error("Failed to load vehicle image", error);
+  };
+}
+
 // Draw the static radar base once to offscreen canvas
 function drawStaticBase(): void {
+  baseCtx.clearRect(0, 0, width, height);
+
   // Draw concentric circles (distance rings) with distance labels
   baseCtx.strokeStyle = "rgba(0, 255, 255, 0.15)";
   baseCtx.lineWidth = 1;
@@ -99,6 +125,92 @@ function drawStaticBase(): void {
   baseCtx.beginPath();
   baseCtx.arc(centerX, centerY, maxRadius, 0, Math.PI * 2);
   baseCtx.stroke();
+
+  drawVehicleOverlay();
+}
+
+function drawVehicleOverlay(): void {
+  if (!vehicleImage || !vehicleImageLoaded) {
+    return;
+  }
+
+  const aspectRatio =
+    vehicleImage.naturalWidth && vehicleImage.naturalHeight
+      ? vehicleImage.naturalWidth / vehicleImage.naturalHeight
+      : 0.667; // Fallback to original ratio if metadata is missing
+
+  const vehicleHeight = maxRadius * 0.2;
+  const vehicleWidth = vehicleHeight * aspectRatio;
+  const imageX = centerX - vehicleWidth / 2;
+  const imageY = centerY - vehicleHeight / 2;
+
+  baseCtx.save();
+  baseCtx.globalAlpha = 0.9;
+  baseCtx.imageSmoothingEnabled = true;
+  baseCtx.drawImage(vehicleImage, imageX, imageY, vehicleWidth, vehicleHeight);
+  baseCtx.restore();
+
+  drawVehicleCornerMarkers(imageX, imageY, vehicleWidth, vehicleHeight);
+}
+
+function drawVehicleCornerMarkers(
+  imageX: number,
+  imageY: number,
+  imageWidth: number,
+  imageHeight: number
+): void {
+  const padding = 14//Math.max(2, Math.min(imageWidth, imageHeight) * 0.0008);
+  const cornerLength = Math.max(5, Math.min(imageWidth, imageHeight) * 0.018);
+  const dotRadius = 4;
+
+  const corners = [
+    { label: "NW", x: imageX + padding, y: imageY + padding, h: 1, v: 1 },
+    {
+      label: "NE",
+      x: imageX + imageWidth - padding,
+      y: imageY + padding,
+      h: -1,
+      v: 1,
+    },
+    {
+      label: "SW",
+      x: imageX + padding,
+      y: imageY + imageHeight - padding,
+      h: 1,
+      v: -1,
+    },
+    {
+      label: "SE",
+      x: imageX + imageWidth - padding,
+      y: imageY + imageHeight - padding,
+      h: -1,
+      v: -1,
+    },
+  ];
+
+  baseCtx.save();
+  baseCtx.lineWidth = 2;
+  baseCtx.strokeStyle = "rgba(0, 255, 255, 0.55)";
+  baseCtx.fillStyle = "rgba(0, 255, 255, 0.9)";
+  baseCtx.font = "11px monospace";
+  baseCtx.textAlign = "center";
+  baseCtx.textBaseline = "middle";
+
+  corners.forEach(({ label, x, y, h, v }) => {
+    baseCtx.beginPath();
+    baseCtx.moveTo(x, y + v * cornerLength);
+    baseCtx.lineTo(x, y);
+    baseCtx.lineTo(x + h * cornerLength, y);
+    baseCtx.stroke();
+
+    const dotX = x;
+    const dotY = y;
+    baseCtx.beginPath();
+    baseCtx.arc(dotX, dotY, dotRadius, 0, Math.PI * 2);
+    baseCtx.fill();
+  });
+
+  baseCtx.restore();
 }
 
 // Composite the static base onto main canvas (called each frame)
