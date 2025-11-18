@@ -101,6 +101,7 @@ frontend.stderr?.on("data", (data: Buffer) => {
 
 frontend.on("close", (code: number | null) => {
 	log("[FRONTEND]", colors.red, `Process exited with code ${code}`);
+	//backend.kill();
 	process.exit(code || 0);
 });
 
