@@ -5,7 +5,7 @@ import socket
 import socketserver
 import urllib.request
 import json
-from typing import List, Optional
+from typing import Dict, List, Optional, Tuple
 from flask import Flask, Response, request, jsonify, abort
 
 # Adapter Node Server version
@@ -256,44 +256,96 @@ def _json_escape(s: str) -> str:
 
 
 def load_radars(manager_host: Optional[str] = None, manager_port: int = 9090) -> None:
-    radars = scan_radar_devices()
-    # Create a server for each radar device
-    servers = []
-    
-    for i, radar in enumerate(radars):
-        # Calculate ports based on config device index
-        # Each node gets unique ports: 8080 + cfg_idx, 9100 + cfg_idx
-        http_port = 8080 + i
-        tcp_port = 9100 + i
-        
-        print(f"Starting radar adapter {i+1}/{len(radars)}:")
-        print(f"  serial number: {radar.serial_number}")
-        print(f"  Configure serial: {radar.configure_port}")
-        print(f"  Data serial: {radar.data_port}")
-        print(f"  HTTP port for control: {http_port}, TCP data stream port: {tcp_port}")
-        
-        try:
-            server = RadarAdapterNodeServer(radar, http_port=http_port, tcp_port=tcp_port)
-            server.start(manager_host=manager_host, manager_port=manager_port)
-            servers.append(server)
-            print(f"  ✓ Server running on http://0.0.0.0:{http_port} and TCP stream on port {tcp_port}")
-        except Exception as e:
-            print(f"  ✗ Failed to start server: {e}")
-    
-    if not servers:
-        print("No servers started successfully")
-        return
-    
-    print(f"\n{len(servers)} server(s) running. Press Ctrl+C to stop...")
-    
+    """Continuously monitor connected radars and manage their adapter servers."""
+
+    servers: Dict[str, RadarAdapterNodeServer] = {}
+    port_offsets: Dict[str, int] = {}
+    used_offsets: set[int] = set()
+
+    def allocate_offset() -> int:
+        offset = 0
+        while offset in used_offsets:
+            offset += 1
+        used_offsets.add(offset)
+        return offset
+
+    print("Monitoring radar devices. Press Ctrl+C to stop...")
+
     try:
-        for server in servers:
-            server.join()
+        while True:
+            try:
+                discovered = scan_radar_devices(instantiate_devices=False)
+            except Exception as scan_error:
+                print(f"✗ Failed to scan radar devices: {scan_error}")
+                time.sleep(3)
+                continue
+
+            discovered_map: Dict[str, Tuple[str, str]] = {}
+            for serial, ports in discovered:
+                if not serial or len(ports) < 2:
+                    continue
+                discovered_map[serial] = (ports[0], ports[1])
+
+            current_serials = set(servers.keys())
+            discovered_serials = set(discovered_map.keys())
+
+            new_serials = sorted(discovered_serials - current_serials)
+            removed_serials = sorted(current_serials - discovered_serials)
+
+            # Stop servers for removed devices
+            for serial in removed_serials:
+                server = servers.pop(serial, None)
+                offset = port_offsets.pop(serial, None)
+                if offset is not None:
+                    used_offsets.discard(offset)
+                if server:
+                    print(f"Stopping radar adapter for serial {serial} (device disconnected)")
+                    try:
+                        server.stop()
+                    except Exception as stop_error:
+                        print(f"  ✗ Failed to stop server for {serial}: {stop_error}")
+
+            # Start servers for newly discovered devices
+            for serial in new_serials:
+                configure_port, data_port = discovered_map[serial]
+                try:
+                    radar = RadarDevice(serial, configure_port=configure_port, data_port=data_port)
+                except Exception as radar_error:
+                    print(f"✗ Failed to initialize radar {serial}: {radar_error}")
+                    continue
+
+                offset = allocate_offset()
+                http_port = 8080 + offset
+                tcp_port = 9100 + offset
+
+                print(f"Starting radar adapter for serial {serial}:")
+                print(f"  Configure serial: {configure_port}")
+                print(f"  Data serial: {data_port}")
+                print(f"  HTTP port for control: {http_port}, TCP data stream port: {tcp_port}")
+
+                try:
+                    server = RadarAdapterNodeServer(radar, http_port=http_port, tcp_port=tcp_port)
+                    server.start(manager_host=manager_host, manager_port=manager_port)
+                except Exception as start_error:
+                    print(f"  ✗ Failed to start server for {serial}: {start_error}")
+                    try:
+                        radar.close()
+                    except Exception:
+                        pass
+                    used_offsets.discard(offset)
+                    continue
+
+                servers[serial] = server
+                port_offsets[serial] = offset
+                print(f"  ✓ Server running on http://0.0.0.0:{http_port} and TCP stream on port {tcp_port}")
+
+            time.sleep(3)
 
     except KeyboardInterrupt:
-        pass
+        print("Stopping radar monitoring...")
     finally:
-        for server in servers:
+        for serial, server in servers.items():
+            print(f"Shutting down radar adapter for serial {serial}")
             try:
                 server.stop()
             except Exception:
@@ -304,8 +356,6 @@ def main():
     radars_manager_ip = argv[1] if len(argv) > 1 else "192.168.1.100"
     radars_manager_port = int(argv[2]) if len(argv) > 2 else 9090
     
-    # Wait for radars_manager to be ready before loading radars
-    wait_for_manager_ping(radars_manager_ip, radars_manager_port)
     
     load_radars(radars_manager_ip, radars_manager_port)
 
