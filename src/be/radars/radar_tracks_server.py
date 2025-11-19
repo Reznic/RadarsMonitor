@@ -144,23 +144,39 @@ class RadarTracksServer:
         log.setLevel(logging.ERROR)
         self.app.run(host=self.host, port=self.port)
     
-    def update_radar_status(self, radar_id: str, is_active: bool, orientation_angle: float) -> None:
-        stop_cmd = "sensorStop" 
+    def update_radar_status(
+        self,
+        radar_id: str,
+        is_active: bool,
+        orientation_angle: float,
+        x: float = 0.0,
+        y: float = 0.0,
+    ) -> None:
+        """Update the cached radar status and optionally control the radar via manager."""
+        self.radar_status[radar_id] = {
+            "is_active": bool(is_active),
+            "orientation_angle": orientation_angle,
+            "x": x,
+            "y": y,
+        }
+
+        stop_cmd = "sensorStop"
         if self.radars_manager:
-           # Get tracks from all radars
-           with self.radars_manager._radars_lock:
-               if radar_id in self.radars_manager.radars:
+            with self.radars_manager._radars_lock:
+                radar = self.radars_manager.radars.get(radar_id)
+                if not radar:
+                    return
                 if is_active:
-                    self.radars_manager.radars[radar_id].configure(self.radars_manager.CONFIG_RETRY_COUNT, delay=0)
+                    radar.configure(self.radars_manager.CONFIG_RETRY_COUNT, delay=0)
                     print(f"Radar {radar_id} status updated to ON")
                 else:
-                   self.radars_manager.radars[radar_id].send_command(stop_cmd)
-                   print(f"Radar {radar_id} status updated to OFF")
+                    radar.send_command(stop_cmd)
+                    print(f"Radar {radar_id} status updated to OFF")
                     
     
     def get_radars_status(self):
         """Route handler for /radars_status endpoint"""
-        all_status: Dict[str, RadarStatus] = {}
+        all_status: Dict[str, RadarStatus] = dict(self.radar_status)
         
         if self.radars_manager:
             with self.radars_manager._radars_lock:
@@ -236,90 +252,96 @@ class RadarTracksServer:
         pass
 
 ## Example usage:
-#if __name__ == "__main__":
-#    import time
-#    import math
-#    
-#    # Create server instance
-#    server = RadarTracksServer(port=1337)
-#    
-#    # Start the server
-#    server.start_server()
-#    
-#    # Initialize radar status
-#    server.update_radar_status(
-#        radar_id="radar1",
-#        is_active=True,
-#        orientation_angle=45.0
-#    )
-#    
-#    # Simulate a track moving closer
-#    initial_range = 100.0  # Start at 100m
-#    final_range = 5.0     # End at 5m
-#    samples = 200
-#    
-#    # Calculate range decrease per step
-#    range_step = (initial_range - final_range) / samples
-#    
-#    # Simulate small azimuth oscillation using sine wave
-#    base_azimuth = 45.0
-#    
-#    try:
-#        # Generate 200 samples
-#        for i in range(samples):
-#            # Calculate current range
-#            current_range = initial_range - (range_step * i)
-#            
-#            # Add small sine wave variation to azimuth (-5 to +5 degrees)
-#            azimuth_variation = 5 * math.sin(i * 2 * math.pi / 50)  # Complete oscillation every 50 samples
-#            current_azimuth = base_azimuth + azimuth_variation
-#            
-#            # Ensure azimuth stays in 0-359 range
-#            current_azimuth = current_azimuth % 360
-#            
-#            # Update track data
-#            server.update_radar_data(
-#                radar_id="radar1",
-#                track_id=1,
-#                azimuth=current_azimuth,
-#                range_meters=current_range
-#            )
-#            
-#            # Simulate radar status changes
-#            # Radar orientation follows a slower oscillation pattern
-#            orientation_angle = 70
-#            
-#            # Simulate radar going active/inactive every 50 samples
-#            is_active = (i % 50) < 40  # Active for 40 samples, inactive for 10 samples
-#            
-#            # Update radar status
-#            server.update_radar_status(
-#                radar_id="radar1",
-#                is_active=is_active,
-#                orientation_angle=orientation_angle   # Keep angle in 0-359 range
-#            )
-#            
-#            # Add a second radar with different pattern
-#            second_orientation = 190 
-#            server.update_radar_status(
-#                radar_id="radar2",
-#                is_active=not is_active,  # Opposite active status of radar1
-#                orientation_angle=second_orientation 
-#            )
-#            
-#            # Sleep for a short time to simulate real-time updates
-#            time.sleep(3)  # Update every 3 seconds
-#            
-#            # Print update (optional)
-#            print(f"Sample {i+1}/200:")
-#            print(f"  Radar1: Active={is_active}, Orientation={orientation_angle:.1f}°")
-#            print(f"  Radar2: Active={not is_active}, Orientation={second_orientation:.1f}°")
-#            
-#        print("Simulation completed")
-#        
-#        # Keep server running
-#        while True:
-#            time.sleep(1)
-#            
-#    except KeyboardInterrupt:
-#        server.stop_server()
+if __name__ == "__main__":
+    import time
+    import math
+    
+    # Create server instance
+    server = RadarTracksServer(port=1337)
+    
+    # Start the server
+    server.start_server()
+    
+    # Initialize radar status
+    server.update_radar_status(
+        radar_id="radar1",
+        is_active=True,
+        orientation_angle=45.0,
+        x=10.0,
+        y=5.0,
+    )
+    
+    # Simulate a track moving closer
+    initial_range = 100.0  # Start at 100m
+    final_range = 5.0     # End at 5m
+    samples = 200
+    
+    # Calculate range decrease per step
+    range_step = (initial_range - final_range) / samples
+    
+    # Simulate small azimuth oscillation using sine wave
+    base_azimuth = 45.0
+    
+    try:
+        # Generate 200 samples
+        for i in range(samples):
+            # Calculate current range
+            current_range = initial_range - (range_step * i)
+            
+            # Add small sine wave variation to azimuth (-5 to +5 degrees)
+            azimuth_variation = 5 * math.sin(i * 2 * math.pi / 50)  # Complete oscillation every 50 samples
+            current_azimuth = base_azimuth + azimuth_variation
+            
+            # Ensure azimuth stays in 0-359 range
+            current_azimuth = current_azimuth % 360
+            
+            # Update track data
+            server.update_radar_data(
+                radar_id="radar1",
+                track_id=1,
+                azimuth=current_azimuth,
+                range_meters=current_range
+            )
+            
+            # Simulate radar status changes
+            # Radar orientation follows a slower oscillation pattern
+            orientation_angle = 70
+            
+            # Simulate radar going active/inactive every 50 samples
+            is_active = (i % 50) < 40  # Active for 40 samples, inactive for 10 samples
+            
+            # Update radar status
+            server.update_radar_status(
+                radar_id="radar1",
+                is_active=is_active,
+                orientation_angle=orientation_angle,   # Keep angle in 0-359 range
+                x=10.0,
+                y=5.0,
+            )
+            
+            # Add a second radar with different pattern
+            second_orientation = 190 
+            server.update_radar_status(
+                radar_id="radar2",
+                is_active=not is_active,  # Opposite active status of radar1
+                orientation_angle=second_orientation,
+                x=30.0,
+                y=-12.0,
+            )
+            
+            # Sleep for a short time to simulate real-time updates
+            time.sleep(3)  # Update every 3 seconds
+            
+            # Print update (optional)
+            print(f"Sample {i+1}/200:")
+            print(f"  Radar1: Active={is_active}, Orientation={orientation_angle:.1f}°")
+            print(f"  Radar2: Active={not is_active}, Orientation={second_orientation:.1f}°")
+            
+        print("Simulation completed")
+        
+        # Keep server running
+        while True:
+            time.sleep(1)
+            
+    except KeyboardInterrupt:
+        server.stop_server()

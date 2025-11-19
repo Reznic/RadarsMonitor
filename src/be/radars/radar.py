@@ -138,9 +138,10 @@ class Radar:
             if len(classified_tracks) > 0:
                 for track in classified_tracks:
                     #self.rotate_track(track)
+                    azimuth_base = self.azimuth if self.azimuth is not None else 0.0
                     self.radar_tracks[radar_id] = {
                         "track_id": track.id,
-                        "azimuth": -track.median_az + self.azimuth,
+                        "azimuth": -track.median_az + azimuth_base,
                         "range": track.range_val
                     }
                 self.on_tracked_targets_callback(radar_id, classified_tracks)
