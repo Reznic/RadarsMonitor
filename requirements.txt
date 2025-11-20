@@ -2,7 +2,7 @@
 flask>=2.0.0
 
 # Scientific computing
-numpy
+numpy<2.0.0
 scipy>=1.7.0
 
 # Tracker algorithm dependencies

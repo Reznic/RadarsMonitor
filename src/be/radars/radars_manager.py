@@ -89,6 +89,20 @@ class RadarsManager:
             self.next_radar_freq += self.RADARS_FREQ_MARGIN
         # Schedule radar start 
         threading.Thread(target=radar.start, name=f"StartRadar-{radar_id}", daemon=True).start()
+
+    def unregister_radar(self, radar_id: str) -> bool:
+        """Unregister a radar and stop its processes."""
+        with self._radars_lock:
+            radar = self.radars.pop(radar_id, None)
+        if radar:
+            try:
+                radar.stop()
+                print(f"Radar {radar_id} unregistered and stopped")
+            except Exception as e:
+                print(f"Error stopping radar {radar_id}: {e}")
+            return True
+        print(f"Radar {radar_id} not found to unregister")
+        return False
     
     def _setup_csv_file(self) -> None:
         """Setup CSV file for writing tracks - open once and keep it open with timestamp in filename"""
@@ -179,6 +193,23 @@ class RadarsManager:
                     
             except Exception as e:
                 print(f"Error handling boot message: {e}")
+                return jsonify({"error": str(e)}), 500
+
+        @app.route('/lost_radar', methods=['POST'])
+        def lost_radar():
+            """Handle lost radar notification to unregister the radar."""
+            try:
+                data = request.json or {}
+                radar_serial = data.get('radar_serial')
+                if not radar_serial:
+                    return jsonify({"error": "Missing radar_serial"}), 400
+
+                success = self.unregister_radar(radar_serial)
+                if success:
+                    return jsonify({"status": "unregistered", "radar_id": radar_serial})
+                return jsonify({"error": "Radar not found"}), 404
+            except Exception as e:
+                print(f"Error handling lost_radar message: {e}")
                 return jsonify({"error": str(e)}), 500
         
         @app.after_request
@@ -289,7 +320,7 @@ class RadarsManager:
         if tracks:
             classified_tracks = [track for track in tracks if track.target_class and track.target_class != 'n']
             if len(classified_tracks) > 0:
-                tracks_csv = convert_tracks_to_csv(tracks, radar_id)
+                tracks_csv = convert_tracks_to_csv(tracks, radar_id, self)
                 if tracks_csv and self._csv_writer:
                     try:
                         with self._csv_file_lock:
@@ -302,7 +333,11 @@ class RadarsManager:
                         print(f"Error writing to CSV file: {e}")
 
 
-def convert_tracks_to_csv(tracks, radar_id: Optional[str] = None) -> List[str]:
+def convert_tracks_to_csv(
+    tracks,
+    radar_id: Optional[str] = None,
+    radars_manager: Optional["RadarsManager"] = None,
+) -> List[str]:
     if not tracks:
         return []
     
@@ -317,8 +352,11 @@ def convert_tracks_to_csv(tracks, radar_id: Optional[str] = None) -> List[str]:
         try:
             class_map = {'c': 'Car', 'h': 'Human', 't': 'Truck', 'n': 'None'}
             class_name = class_map.get(track.target_class, 'None')
+            azimuth = 0.0
+            if radars_manager and radar_id and radar_id in radars_manager.radars:
+                azimuth = radars_manager.radars[radar_id].azimuth or 0.0
             track_csv_data = [radar_id,
-                              self.radars[radar_id].azimuth,
+                              azimuth,
                               f"{track.id}",
                               track.last_assoc_timestamp,
                               0,

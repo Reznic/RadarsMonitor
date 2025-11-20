@@ -4,13 +4,13 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/bin/bash /home/ideon/RadarsMonitor_2/run.sh
-WorkingDirectory=/home/ideon/RadarsMonitor_2
+ExecStart=/bin/bash /home/ykv3/RadarsMonitor/run.sh
+WorkingDirectory=/home/ykv3/RadarsMonitor
 StandardOutput=journal
 StandardError=journal
 Restart=on-failure
 RestartSec=10
-User=ideon
+User=ykv3
 
 [Install]
 WantedBy=multi-user.target
