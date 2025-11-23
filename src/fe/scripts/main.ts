@@ -39,7 +39,7 @@ function render(): void {
 	drawSweepLine(); // Draw sweep line after base, before dots
 	drawRadarTrails(trackHistory); // Draw fading trails before current dots
 	drawRadarDots(radarDots);
-	drawPulsatingCenter(); // Draw pulsating center dot
+	// drawPulsatingCenter(); // Draw pulsating center dot
 	drawVehicleOverlay(); // Ensure vehicle and markers render above dots/trails
 	requestAnimationFrame(render);
 }
