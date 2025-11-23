@@ -180,31 +180,35 @@ class RadarTracksServer:
         
         if self.radars_manager:
             with self.radars_manager._radars_lock:
-                # Single loop through radars_azimuth_mapping to check all radars
-                for radar_id in self.radars_manager.radars_azimuth_mapping:
-                    # Get mapping once and cache it
-                    mapping = self.radars_manager.get_radar_mapping(radar_id)
-                    
-                    # Check if radar exists in radars dict
-                    radar = self.radars_manager.radars.get(radar_id)
+                for radar_id, radar in self.radars_manager.radars.items():
                     if radar and hasattr(radar, 'get_tracks'):
-                        # Radar is active: get health status
+                        # Get radar health status (returns bool)
                         is_active = radar.get_data_reception_health()
+                        
+                        # Get mapping once and cache it
+                        mapping = self.radars_manager.get_radar_mapping(radar_id)
+                        
+                        # Create RadarStatus structure
                         radar_status: RadarStatus = {
                             "is_active": bool(is_active),
                             "orientation_angle": getattr(radar, 'azimuth', 0.0) or 0.0,
                             "x": mapping.get("x", 0.0) if mapping else 0.0,
                             "y": mapping.get("y", 0.0) if mapping else 0.0
-                        }
+                            }
+                        
+                        # Add to all_status dictionary
                         all_status[radar_id] = radar_status
-                    else:
-                        # Radar is missing: mark as inactive
-                        all_status[radar_id] = {
-                            "is_active": False,
-                            "orientation_angle": mapping.get("azimuth", 0.0) if mapping else 0.0,
-                            "x": mapping.get("x", 0.0) if mapping else 0.0,
-                            "y": mapping.get("y", 0.0) if mapping else 0.0
-                        }
+                        
+                        # Debug print
+                        #print(f"Radar {radar_id} status: {radar_status}")
+            missing_count = 8 - len(self.radars_manager.radars)
+            for i in range(missing_count):
+                all_status[f"Missing_{i+1}"] = {
+                    "is_active": False,
+                    "orientation_angle": 0.0,
+                    "x": 0.0,
+                    "y": 0.0
+                }
                 
         # Log status to file (always log, even if empty)
         try:
