@@ -180,25 +180,32 @@ class RadarTracksServer:
         
         if self.radars_manager:
             with self.radars_manager._radars_lock:
-                for radar_id, radar in self.radars_manager.radars.items():
+                # Single loop through radars_azimuth_mapping to check all radars
+                for radar_id in self.radars_manager.radars_azimuth_mapping:
+                    # Get mapping once and cache it
+                    mapping = self.radars_manager.get_radar_mapping(radar_id)
+                    
+                    # Check if radar exists in radars dict
+                    radar = self.radars_manager.radars.get(radar_id)
                     if radar and hasattr(radar, 'get_tracks'):
-                        # Get radar health status (returns bool)
+                        # Radar is active: get health status
                         is_active = radar.get_data_reception_health()
-                        
-                        # Create RadarStatus structure
                         radar_status: RadarStatus = {
                             "is_active": bool(is_active),
                             "orientation_angle": getattr(radar, 'azimuth', 0.0) or 0.0,
-                            "x": self.radars_manager.get_radar_mapping(radar_id)['x'],
-                            "y": self.radars_manager.get_radar_mapping(radar_id)['y']
-                            }
-                        
-                        # Add to all_status dictionary
+                            "x": mapping.get("x", 0.0) if mapping else 0.0,
+                            "y": mapping.get("y", 0.0) if mapping else 0.0
+                        }
                         all_status[radar_id] = radar_status
-                        
-                        # Debug print
-                        #print(f"Radar {radar_id} status: {radar_status}")
-        
+                    else:
+                        # Radar is missing: mark as inactive
+                        all_status[radar_id] = {
+                            "is_active": False,
+                            "orientation_angle": mapping.get("azimuth", 0.0) if mapping else 0.0,
+                            "x": mapping.get("x", 0.0) if mapping else 0.0,
+                            "y": mapping.get("y", 0.0) if mapping else 0.0
+                        }
+                
         # Log status to file (always log, even if empty)
         try:
             log_data = {
