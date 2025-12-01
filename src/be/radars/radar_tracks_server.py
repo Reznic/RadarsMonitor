@@ -12,6 +12,7 @@ class TrackData(TypedDict):
     track_id: int
     azimuth: float
     range: float
+    class_name: str
 
 class RadarStatus(TypedDict):
     is_active: bool
@@ -43,6 +44,24 @@ class RadarTracksServer:
         
         # Create a thread for the server
         self.server_thread = threading.Thread(target=self.run_server, daemon=True)
+
+    def _get_existing_orientation(self, radar_id: str) -> float:
+        """Return the last known orientation for a radar, falling back to mapping/instance."""
+        status = self.radar_status.get(radar_id)
+        if status and "orientation_angle" in status:
+            return status["orientation_angle"]
+
+        if self.radars_manager:
+            mapping = self.radars_manager.get_radar_mapping(radar_id)
+            if mapping:
+                azimuth = mapping.get("azimuth")
+                if azimuth is not None:
+                    return azimuth
+            radar = self.radars_manager.radars.get(radar_id)
+            if radar and hasattr(radar, "azimuth") and radar.azimuth is not None:
+                return radar.azimuth
+
+        return 0.0
     
     def _setup_logging(self):
         """Setup rotating file logger for radar data"""
@@ -79,7 +98,14 @@ class RadarTracksServer:
         self.data_logger.addHandler(handler)
         self.data_logger.propagate = False  # Don't propagate to root logger
     
-    def update_radar_data(self, radar_id: str, track_id: int, azimuth: float, range_meters: float) -> None:
+    def update_radar_data(
+        self,
+        radar_id: str,
+        track_id: int,
+        azimuth: float,
+        range_meters: float,
+        class_name: str = "unknown",
+    ) -> None:
         """
         Update the radar data for a specific radar ID
         
@@ -88,6 +114,7 @@ class RadarTracksServer:
             track_id: Track ID (positive number)
             azimuth: Angle in degrees (0-359)
             range_meters: Range in meters (positive number)
+            class_name: Target classification label (e.g., human/car/truck)
         """
         # Validate inputs
         if not isinstance(track_id, int) or track_id <= 0:
@@ -102,12 +129,14 @@ class RadarTracksServer:
         self.radar_tracks[radar_id] = {
             "track_id": track_id,
             "azimuth": azimuth,
-            "range": range_meters
+            "range": range_meters,
+            "class_name": class_name,
         }
     
     def get_tracks(self):
         """Route handler for /tracks endpoint"""
-        all_tracks = {}
+        # Start with any tracks already cached (e.g., demo mode without manager)
+        all_tracks = dict(self.radar_tracks)
         if self.radars_manager:
             # Get tracks from all radars
             with self.radars_manager._radars_lock:
@@ -182,16 +211,23 @@ class RadarTracksServer:
             with self.radars_manager._radars_lock:
                 for radar_id, radar in self.radars_manager.radars.items():
                     if radar and hasattr(radar, 'get_tracks'):
+                        cached_status = self.radar_status.get(radar_id)
+
                         # Get radar health status (returns bool)
-                        is_active = radar.get_data_reception_health()
+                        is_active = cached_status.get("is_active") if cached_status else radar.get_data_reception_health()
                         
                         # Get mapping once and cache it
                         mapping = self.radars_manager.get_radar_mapping(radar_id)
+                        orientation_angle = (
+                            cached_status.get("orientation_angle")
+                            if cached_status and cached_status.get("orientation_angle") is not None
+                            else getattr(radar, 'azimuth', 0.0) or 0.0
+                        )
                         
                         # Create RadarStatus structure
                         radar_status: RadarStatus = {
                             "is_active": bool(is_active),
-                            "orientation_angle": getattr(radar, 'azimuth', 0.0) or 0.0,
+                            "orientation_angle": orientation_angle,
                             "x": mapping.get("x", 0.0) if mapping else 0.0,
                             "y": mapping.get("y", 0.0) if mapping else 0.0
                             }
@@ -232,13 +268,17 @@ class RadarTracksServer:
             return jsonify({"error": "radar_id is required"}), 400
             
         radar_id = data['radar_id']
+        orientation_angle = self._get_existing_orientation(radar_id)
         
-        # If radar exists in status, update it; if not, return error
-        if radar_id in self.radars_manager.radars:
-            self.update_radar_status(radar_id, True, 0.0)
-            return jsonify({"message": f"Radar {radar_id} turned on"})
-        else:
+        # If a manager exists, validate the radar id; otherwise allow the cached status to be toggled in demo mode
+        if self.radars_manager:
+            if radar_id in self.radars_manager.radars:
+                self.update_radar_status(radar_id, True, orientation_angle)
+                return jsonify({"message": f"Radar {radar_id} turned on"})
             return jsonify({"error": f"Radar {radar_id} not found"}), 404
+
+        self.update_radar_status(radar_id, True, orientation_angle)
+        return jsonify({"message": f"Radar {radar_id} turned on (cached)"})
         
     def turn_radar_off(self):
         """Route handler for /radar/off POST endpoint"""
@@ -247,15 +287,19 @@ class RadarTracksServer:
             return jsonify({"error": "radar_id is required"}), 400
             
         radar_id = data['radar_id']
+        orientation_angle = self._get_existing_orientation(radar_id)
         
-        # If radar exists in status, update it; if not, return error
-        if radar_id in self.radars_manager.radars:
-            self.update_radar_status(radar_id, False, 0.0)
-            return jsonify({
-                "message": f"Radar {radar_id} turned off"
-            })
-        else:
+        # If a manager exists, validate the radar id; otherwise allow the cached status to be toggled in demo mode
+        if self.radars_manager:
+            if radar_id in self.radars_manager.radars:
+                self.update_radar_status(radar_id, False, orientation_angle)
+                return jsonify({
+                    "message": f"Radar {radar_id} turned off"
+                })
             return jsonify({"error": f"Radar {radar_id} not found"}), 404
+
+        self.update_radar_status(radar_id, False, orientation_angle)
+        return jsonify({"message": f"Radar {radar_id} turned off (cached)"})
     
     def stop_server(self):
         """Stop the server (for cleanup)"""
@@ -321,38 +365,17 @@ if __name__ == "__main__":
             # Simulate radar going active/inactive every 50 samples
             is_active = (i % 50) < 40  # Active for 40 samples, inactive for 10 samples
             
-            # Update radar status
-            server.update_radar_status(
-                radar_id="radar1",
-                is_active=is_active,
-                orientation_angle=orientation_angle,   # Keep angle in 0-359 range
-                x=10.0,
-                y=5.0,
-            )
-            
-            # Add a second radar with different pattern
-            second_orientation = 190 
-            server.update_radar_status(
-                radar_id="radar2",
-                is_active=not is_active,  # Opposite active status of radar1
-                orientation_angle=second_orientation,
-                x=30.0,
-                y=-12.0,
-            )
-            
             # Sleep for a short time to simulate real-time updates
-            time.sleep(3)  # Update every 3 seconds
+            time.sleep(0.01)  # Update every 3 seconds
             
             # Print update (optional)
-            print(f"Sample {i+1}/200:")
-            print(f"  Radar1: Active={is_active}, Orientation={orientation_angle:.1f}°")
-            print(f"  Radar2: Active={not is_active}, Orientation={second_orientation:.1f}°")
+            print(f"Sample {i+1}/200")
             
         print("Simulation completed")
         
         # Keep server running
         while True:
-            time.sleep(1)
+            time.sleep(0.1)
             
     except KeyboardInterrupt:
         server.stop_server()

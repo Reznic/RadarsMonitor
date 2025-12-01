@@ -6,8 +6,8 @@
   "scripts": {
     "be": "./venv/bin/python src/radar_tracks_server.py",
     "fe": "bun src/fe/serve.ts",
-    "prod": "bun src/run.ts --prod",
-    "start": "bun src/run.ts",
+    "prod": "bun src/fe/serve.ts --prod",
+    "start": "bun src/fe/serve.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",

@@ -20,6 +20,7 @@ export interface TrackData {
 	track_id: number;
 	azimuth: number; // in degrees
 	range: number; // in meters
+	class_name?: string;
 }
 
 export interface RadarStatus {

@@ -390,7 +390,7 @@ async function pollRadarData(): Promise<void> {
         canvasY: canvasPos.y,
         range: trackData.range,
         azimuth: trackData.azimuth, // Store azimuth in degrees
-        class: "unknown", // Not provided by Python server
+        class: trackData.class_name ?? "unknown",
         timestamp: Date.now() / 1000, // Current timestamp in seconds
       };
 

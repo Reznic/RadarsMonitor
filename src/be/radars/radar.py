@@ -136,13 +136,15 @@ class Radar:
         if tracks:
             classified_tracks = [track for track in tracks if track.target_class and track.target_class != 'n']
             if len(classified_tracks) > 0:
+                class_map = {'c': 'car', 'h': 'human', 't': 'truck', 'n': 'none'}
                 for track in classified_tracks:
                     #self.rotate_track(track)
                     azimuth_base = self.azimuth if self.azimuth is not None else 0.0
                     self.radar_tracks[radar_id] = {
                         "track_id": track.id,
                         "azimuth": -track.median_az + azimuth_base,
-                        "range": track.range_val
+                        "range": track.range_val,
+                        "class_name": class_map.get(track.target_class, 'unknown'),
                     }
                 self.on_tracked_targets_callback(radar_id, classified_tracks)
     
