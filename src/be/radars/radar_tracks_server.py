@@ -32,6 +32,10 @@ class RadarTracksServer:
         self.radar_status: Dict[str, RadarStatus] = {}
         # Reference to RadarsManager instance
         self.radars_manager = radars_manager
+        # System mode: "radar" or "camera"
+        self.system_mode: str = "radar"
+        # Alarm state: whether to show alarm or not
+        self.show_alarm: bool = False
         
         # Setup logging to file with rotation (99MB max size)
         self._setup_logging()
@@ -41,6 +45,9 @@ class RadarTracksServer:
         self.app.route('/radars_status', methods=['GET'])(self.get_radars_status)
         self.app.route('/radar/on', methods=['POST'])(self.turn_radar_on)
         self.app.route('/radar/off', methods=['POST'])(self.turn_radar_off)
+        self.app.route('/system/mode', methods=['GET'])(self.get_system_mode)
+        self.app.route('/system/mode', methods=['POST'])(self.change_system_mode)
+        self.app.route('/alarm', methods=['GET'])(self.get_alarm)
         
         # Create a thread for the server
         self.server_thread = threading.Thread(target=self.run_server, daemon=True)
@@ -136,7 +143,7 @@ class RadarTracksServer:
     def get_tracks(self):
         """Route handler for /tracks endpoint"""
         # Start with any tracks already cached (e.g., demo mode without manager)
-        all_tracks = dict(self.radar_tracks)
+        all_tracks: Dict[str, TrackData] = dict(self.radar_tracks)
         if self.radars_manager:
             # Get tracks from all radars
             with self.radars_manager._radars_lock:
@@ -300,7 +307,84 @@ class RadarTracksServer:
 
         self.update_radar_status(radar_id, False, orientation_angle)
         return jsonify({"message": f"Radar {radar_id} turned off (cached)"})
+
+    def set_alarm(self, show_alarm: bool):
+        """Route handler for /alarm POST endpoint"""
+        self.show_alarm = show_alarm
+
+    def set_system_mode(self, system_mode: str):
+        """Route handler for /system/mode POST endpoint"""
+        self.system_mode = system_mode
     
+    def get_system_mode(self):
+        """Route handler for /system/mode GET endpoint"""
+        # Collect all tracks from cached data and all radars
+        all_tracks: Dict[str, TrackData] = dict(self.radar_tracks)
+        all_camera_ips: Dict[str, str] = {}
+        
+        # Track which radars have cached tracks
+        if self.radars_manager:
+            with self.radars_manager._radars_lock:
+                for radar_id, radar in self.radars_manager.radars.items():
+                    if radar and hasattr(radar, 'get_tracks'):
+                        radar_tracks = radar.get_tracks()
+                        all_tracks.update(radar_tracks) 
+        
+        #in order to support simulation mode we need to use all_tracks
+        if all_tracks:
+            if self.radars_manager:  # Add this check
+                for radar_id, track in all_tracks.items():
+                    mapping = self.radars_manager.get_radar_mapping(radar_id)
+                    if mapping:
+                        camera_ip = mapping.get("camera_ip")
+                        if camera_ip is not None:
+                            all_camera_ips[radar_id] = camera_ip
+                        else:
+                            print(f"Camera IP not found for radar {radar_id}")
+        
+        # If no camera IPs exist, return "radar" mode
+        if not all_camera_ips and self.system_mode == "radar":
+            return jsonify({"mode": "radar"})
+    
+        # If camera IPs exist, return them
+        elif self.system_mode == "radar" and all_camera_ips:
+            self.system_mode = "camera"
+            self.set_alarm(True)
+            return jsonify(all_camera_ips)
+        
+        elif not all_camera_ips and self.system_mode == "camera":
+            if self.radars_manager:
+                for radar_id in self.radars_manager.radars.items():
+                    mapping = self.radars_manager.get_radar_mapping(radar_id)
+                    if mapping:
+                        camera_ip = mapping.get("camera_ip")
+                        if camera_ip is not None:
+                            all_camera_ips[radar_id] = camera_ip
+                        else:
+                            print(f"Camera IP not found for radar {radar_id}")
+            return jsonify(all_camera_ips)
+        elif all_camera_ips and self.system_mode == "camera":
+            self.set_alarm(True)
+            return jsonify(all_camera_ips)
+
+        
+        
+
+    def get_alarm(self):
+        """Route handler for /alarm GET endpoint"""
+        return jsonify({"show_alarm": self.show_alarm})
+    
+    def change_system_mode(self):
+        """Route handler for /system/mode POST endpoint"""
+        data = request.get_json()
+        if not data or 'mode' not in data:
+            return jsonify({"error": "mode is required"}), 400
+        
+        mode = data['mode'].lower()
+        if mode not in ['radar', 'camera']:
+            self.system_mode = mode
+            print(f"System mode changed to: {mode}")
+        
     def stop_server(self):
         """Stop the server (for cleanup)"""
         # Implement shutdown logic if needed
