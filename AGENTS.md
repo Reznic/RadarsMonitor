@@ -1,42 +1,113 @@
-# Repository Guidelines
+# RadarsMonitor
 
-## Project Structure & Module Organization
+Real-time multi-radar tracking visualization system with a Python backend for radar signal processing and a TypeScript/Canvas frontend for interactive web-based display.
 
-- `src/fe/` holds the browser UI (HTML/CSS under `index.html` and `style.css`, TypeScript modules under `scripts/`). Entry point: `scripts/main.ts`.
-- `src/radar_tracks_server.py` exposes the Python backend that streams radar tracks.
-- `src/run.ts` orchestrates full-stack startup via Bun, while `src/fe/serve.ts` runs the frontend-only dev server.
-- Type definitions live in `types.ts`; shared config for the frontend is in `scripts/config.ts`, debugging helpers in `debugConfig.ts`.
-- Node/Bun tooling config: `package.json`, `bun.lock`, `biome.json`, `tsconfig.json`. Python deps: `requirements.txt`.
+## Quick Start
 
-## Build, Test, and Development Commands
+```bash
+bun install                    # Install JS dependencies
+bun run python:setup           # Create venv and install Python deps
 
-- `bun src/fe/serve.ts` — launch the Vite-style frontend dev server.
-- `bun src/run.ts` / `bun src/run.ts --prod` — start the integrated stack (frontend proxy + backend); `--prod` serves optimized assets.
-- `bun src/radar_tracks_server.py` (through `npm run be`) — run only the Python backend API.
-- `bun test` — execute frontend/bun unit tests.
-- `tsc --noEmit` — TypeScript type checking.
-- `biome check .` / `biome check --write .` — lint/format enforcement (read-only vs. autofix).
+bun run fe                     # Frontend dev server (http://localhost:8001)
+bun run be                     # Backend API server (http://localhost:1337)
+bun src/run.ts                 # Run full stack together
+bun src/run.ts --prod          # Production mode with optimized assets
+```
 
-## Coding Style & Naming Conventions
+## Common Commands
 
-- TypeScript/JavaScript: 2-space indentation, ES modules (`import … from "./file.ts"`). Favor descriptive camelCase for variables/functions, PascalCase for types/interfaces.
-- CSS follows BEM-inspired class names (`.sensor-grid`, `.debug-menu`). Keep palette-consistent rgba values.
-- Python backend uses standard 4-space indentation; follow PEP 8 naming.
-- Run Biome before committing; it enforces lint + formatting across TS/CSS/JSON.
+| Command | Description |
+|---------|-------------|
+| `bun run fe` | Start frontend dev server |
+| `bun run be` | Start Python backend API |
+| `bun test` | Run frontend tests |
+| `tsc --noEmit` | TypeScript type checking |
+| `biome check .` | Lint and format check |
+| `biome check --write .` | Auto-fix lint/format issues |
 
-## Testing Guidelines
+## Project Structure
 
-- Frontend unit/integration tests live wherever Bun’s test runner expects (co-located `*.test.ts`). Name suites after the module under test, e.g., `radar.test.ts`.
-- Use `bun test --watch` locally for rapid feedback. No formal coverage gate, but cover sensor state updates, network polling, and canvas math helpers when modifying them.
-- Manual verification: `bun src/run.ts` should show accurate sensor HUD + radar plotting after protocol changes.
+```
+src/
+├── fe/                         # Frontend (TypeScript/Canvas)
+│   ├── index.html             # Main HTML with HUD, canvas, debug menu
+│   ├── style.css              # Dark theme styling
+│   ├── serve.ts               # Bun dev server
+│   └── scripts/
+│       ├── main.ts            # Entry point, render loop
+│       ├── radar.ts           # Canvas rendering engine
+│       ├── network.ts         # API polling, state management
+│       ├── config.ts          # Configuration constants
+│       └── debugMenu.ts       # Debug UI controls
+│
+├── be/radars/                  # Backend (Python/Flask)
+│   ├── radar_tracks_server.py # REST API (/tracks, /radars_status)
+│   ├── radars_manager.py      # Radar lifecycle orchestration
+│   ├── radar.py               # Individual radar instance
+│   ├── tracker_process.py     # Multi-threaded data acquisition
+│   ├── radar_frame_parser.py  # Binary TLV frame parsing
+│   ├── demo.py                # Simulation mode for development
+│   └── tracker_algo/          # 3D tracking algorithms
+│
+├── adapter_node/               # Hardware adapter interface
+│   ├── adapter_node_server.py # Device discovery server
+│   └── radar_device.py        # Low-level hardware control
+│
+├── types.ts                    # Shared TypeScript type definitions
+└── run.ts                      # Full-stack orchestrator
+```
 
-## Commit & Pull Request Guidelines
+## Architecture
 
-- Commits follow practical, present-tense summaries (e.g., “Add HUD accordion toggle”). Include scoped body lines for context when touching multiple areas.
-- Keep diffs focused; separate UI tweaks from backend/math changes where possible.
-- PRs should describe motivation, summarize key changes, list test commands/results, and attach screenshots/gifs for UI updates (HUD, debug menu, radar canvas). Link related issues or TODOs.
+**Data Flow:**
+1. Radar hardware → TCP stream → `RadarNodeClient`
+2. `TrackerProcess` → 3D tracker algorithm → tracked targets
+3. `RadarTracksServer` exposes `/tracks` and `/radars_status` endpoints
+4. Frontend polls backend every 50ms, renders at 60fps via `requestAnimationFrame`
 
-## Security & Configuration Tips
+**Key APIs:**
+- `GET /tracks` - Current track data for all radars
+- `GET /radars_status` - Radar status and orientation angles
+- `POST /radar/on` / `POST /radar/off` - Activate/deactivate radars
 
-- Never commit `.env` or credentials; backend uses plain HTTP endpoints configured via `API_BASE` in `scripts/config.ts`.
-- When adding network calls, honor existing polling intervals/constants to avoid overwhelming the Python server.
+**Configuration** (`src/fe/scripts/config.ts`):
+- `API_BASE`: `http://localhost:1337`
+- `RADAR_CHECK_INTERVAL`: 50ms polling
+- `MAX_DOTS`: 200 trail history per track
+
+## Code Style
+
+- **TypeScript**: 2-space indent, camelCase variables, PascalCase types, ES modules
+- **Python**: 4-space indent, PEP 8 naming
+- **CSS**: BEM-inspired class names (`.sensor-grid`, `.debug-menu`)
+- Run `biome check --write .` before committing
+
+## Key Types
+
+```typescript
+interface TrackData {
+  track_id: number;
+  azimuth: number;
+  range: number;
+  class_name: string;
+}
+
+interface RadarStatus {
+  is_active: boolean;
+  orientation_angle: number;
+}
+```
+
+## Testing
+
+- `bun test` for frontend unit tests
+- Manual verification: run full stack and verify HUD + radar plotting
+- Type check with `tsc --noEmit` before commits
+
+## Notes
+
+- Demo mode (`demo.py`) provides simulated radar data without hardware
+- Frontend uses offscreen canvas for performance (static radar base cached)
+- Track history maintains 200-dot trails with fade effects
+- Never commit `.env` or credentials
+- Honor polling intervals to avoid overwhelming the backend
