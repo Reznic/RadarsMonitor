@@ -20,7 +20,6 @@ class RadarMapping(TypedDict, total=False):
     azimuth: float
     x: float
     y: float
-    camera_ip: str
 
 
 class RadarsManager:
@@ -319,7 +318,6 @@ class RadarsManager:
 
     def _on_tracked_targets_callback(self, radar_id, tracks):
         if tracks:
-            #update csv file for debugging
             classified_tracks = [track for track in tracks if track.target_class and track.target_class != 'n']
             if len(classified_tracks) > 0:
                 tracks_csv = convert_tracks_to_csv(tracks, radar_id, self)
