@@ -20,3 +20,6 @@ opencv-python>=4.5.0
 
 Flask==3.1.0
 flask-cors==5.0.0
+
+# GPIO control for Jetson Orin (used in jetson_gpio_controller.py)
+Jetson.GPIO==2.1.12

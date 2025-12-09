@@ -1,12 +1,13 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from typing import Dict, TypedDict
+from typing import Dict, TypedDict, Optional
 import threading
 import logging
 import logging.handlers
 import os
 import json
 from datetime import datetime
+from jetson_gpio_controller import JetsonGPIOController
 
 class TrackData(TypedDict):
     track_id: int
@@ -32,6 +33,12 @@ class RadarTracksServer:
         self.radar_status: Dict[str, RadarStatus] = {}
         # Reference to RadarsManager instance
         self.radars_manager = radars_manager
+        # GPIO controller for MOSFET control
+        self.gpio_controller: Optional[JetsonGPIOController] = None
+        try:
+            self.gpio_controller = JetsonGPIOController()
+        except Exception as e:
+            logging.warning(f"Failed to initialize GPIO controller: {e}. Running without GPIO control.")
         
         # Setup logging to file with rotation (99MB max size)
         self._setup_logging()
@@ -159,6 +166,21 @@ class RadarTracksServer:
                 self.data_logger.info(f"TRACKS:\n{formatted_json}")
             except Exception as e:
                 self.data_logger.error(f"Error logging tracks: {e}")
+            
+            # Turn on MOSFET when tracks are detected
+            if self.gpio_controller:
+                try:
+                    self.gpio_controller.start_warning_alarm()
+                except Exception as e:
+                    self.data_logger.error(f"Failed to turn MOSFET ON: {e}")
+        else:
+            # Turn off MOSFET when no tracks are detected
+            if self.gpio_controller:
+                try:
+                    if self.gpio_controller.is_alarm_active():
+                        self.gpio_controller.stop_warning_alarm()
+                except Exception as e:
+                    self.data_logger.error(f"Failed to turn MOSFET OFF: {e}")
         
         return jsonify(all_tracks)
     
@@ -303,8 +325,12 @@ class RadarTracksServer:
     
     def stop_server(self):
         """Stop the server (for cleanup)"""
-        # Implement shutdown logic if needed
-        pass
+        # Cleanup GPIO controller
+        if self.gpio_controller:
+            try:
+                self.gpio_controller.cleanup()
+            except Exception as e:
+                self.data_logger.error(f"Error cleaning up GPIO controller: {e}")
 
 ## Example usage:
 if __name__ == "__main__":
