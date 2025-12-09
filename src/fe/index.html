@@ -3,11 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Simple Radar</title>
+    <title>Radar Monitor</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
     <div class="container">
+      <!-- Tab Bar -->
+      <div class="tab-bar">
+        <button class="tab-btn active" data-view="radar">Radar</button>
+        <button class="tab-btn" data-view="camera">Cameras</button>
+      </div>
+
       <!-- HUD Display -->
       <div class="hud" id="hud">
         <div class="hud-header" id="hudHeader">
@@ -39,7 +45,7 @@
       </div>
 
       <!-- Radar Display -->
-      <div class="radar-container">
+      <div class="radar-container" id="radarView">
         <canvas id="radar"></canvas>
 
         <!-- Side Labels -->
@@ -48,8 +54,26 @@
         <div class="label label-bottom">BOTTOM</div>
         <div class="label label-left">LEFT</div>
       </div>
+
+      <!-- Camera Display -->
+      <div class="camera-container hidden" id="cameraView">
+        <div class="camera-grid" id="cameraGrid">
+          <!-- Camera feeds will be generated dynamically -->
+        </div>
+      </div>
+
+      <!-- Track Alert Overlay -->
+      <div class="track-alert-overlay hidden" id="trackAlertOverlay">
+        <div class="track-alert-header">
+          <span class="track-alert-title">TRACK DETECTED</span>
+          <button class="track-alert-close" id="trackAlertClose">DISMISS ALL</button>
+        </div>
+        <div class="track-alert-grid" id="trackAlertGrid">
+          <!-- Alert camera feeds will be generated dynamically -->
+        </div>
+      </div>
     </div>
 
-    <script type="module" src="scripts/main.ts"></script>
+    <script type="module" src="src/main.ts"></script>
   </body>
 </html>
