@@ -164,6 +164,53 @@ body {
 	margin-top: 4px;
 }
 
+/* Camera Mode Toggle Button */
+.camera-mode-toggle {
+	display: flex;
+	padding: 0;
+	font-size: 10px;
+	font-weight: bold;
+	letter-spacing: 0.5px;
+	background: rgba(0, 0, 0, 0.3);
+	border: 1px solid rgba(255, 255, 255, 0.2);
+	border-radius: 4px;
+	cursor: pointer;
+	overflow: hidden;
+	font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.camera-mode-toggle .mode-day,
+.camera-mode-toggle .mode-night {
+	padding: 3px 6px;
+	transition: all 0.2s ease;
+}
+
+.camera-mode-toggle .mode-day {
+	color: rgba(255, 204, 0, 0.5);
+	background: transparent;
+}
+
+.camera-mode-toggle .mode-night {
+	color: rgba(102, 136, 255, 0.5);
+	background: transparent;
+}
+
+.camera-mode-toggle:not(.night) .mode-day {
+	color: #ffcc00;
+	background: rgba(255, 204, 0, 0.2);
+	text-shadow: 0 0 6px rgba(255, 204, 0, 0.5);
+}
+
+.camera-mode-toggle.night .mode-night {
+	color: #6688ff;
+	background: rgba(102, 136, 255, 0.2);
+	text-shadow: 0 0 6px rgba(102, 136, 255, 0.5);
+}
+
+.camera-mode-toggle:hover {
+	border-color: rgba(255, 255, 255, 0.4);
+}
+
 /* Hidden utility class */
 .hidden {
 	display: none !important;
