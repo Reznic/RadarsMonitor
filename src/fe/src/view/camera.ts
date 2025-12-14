@@ -1,4 +1,9 @@
-import { CAMERAS, type CameraConfig, type CameraMode } from "../config.ts";
+import {
+	CAMERAS,
+	type CameraConfig,
+	type CameraMode,
+	getCameraStreamUrl,
+} from "../config.ts";
 
 let cameraGrid: HTMLElement | null = null;
 const cameraModes: Map<number, CameraMode> = new Map();
@@ -62,19 +67,23 @@ function updateCameraModeUI(cameraId: number, mode: CameraMode): void {
 
 	const camera = CAMERAS.find((c) => c.id === cameraId);
 	if (camera) {
+		const streamUrl = getCameraStreamUrl(camera, mode);
+
+		const video = cameraCell.querySelector(".camera-video") as HTMLVideoElement;
+		if (video) {
+			video.src = streamUrl;
+		}
+
 		const ipDisplay = cameraCell.querySelector(".camera-ip");
 		if (ipDisplay) {
-			const streamPath =
-				mode === "day" ? camera.dayStreamPath : camera.nightStreamPath;
-			ipDisplay.textContent = `${camera.ip}:${camera.port}${streamPath}`;
+			ipDisplay.textContent = streamUrl;
 		}
 	}
 }
 
 function createCameraCell(camera: CameraConfig): string {
 	const mode = cameraModes.get(camera.id) || "day";
-	const streamPath =
-		mode === "day" ? camera.dayStreamPath : camera.nightStreamPath;
+	const streamUrl = getCameraStreamUrl(camera, mode);
 
 	return `
     <div class="camera-cell" data-camera-id="${camera.id}">
@@ -87,24 +96,15 @@ function createCameraCell(camera: CameraConfig): string {
         <span class="camera-status offline">OFFLINE</span>
       </div>
       <div class="camera-feed">
+        <video class="camera-video" data-camera-id="${camera.id}" src="${streamUrl}" autoplay muted playsinline></video>
         <div class="camera-placeholder">
           <div class="camera-placeholder-icon">📷</div>
           <div>No Signal</div>
-          <div class="camera-ip">${camera.ip}:${camera.port}${streamPath}</div>
+          <div class="camera-ip">${streamUrl}</div>
         </div>
       </div>
     </div>
   `;
-}
-
-export function getCameraStreamUrl(
-	camera: CameraConfig,
-	mode?: CameraMode,
-): string {
-	const cameraMode = mode || cameraModes.get(camera.id) || "day";
-	const streamPath =
-		cameraMode === "day" ? camera.dayStreamPath : camera.nightStreamPath;
-	return `http://${camera.ip}:${camera.port}${streamPath}`;
 }
 
 export function getCameraMode(cameraId: number): CameraMode {

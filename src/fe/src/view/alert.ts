@@ -1,4 +1,4 @@
-import { CAMERAS, type CameraMode } from "../config.ts";
+import { CAMERAS, type CameraMode, getCameraStreamUrl } from "../config.ts";
 
 let alertOverlay: HTMLElement | null = null;
 let alertGrid: HTMLElement | null = null;
@@ -79,11 +79,16 @@ function updateAlertCameraModeUI(radarId: number, mode: CameraMode): void {
 
 	const camera = CAMERAS.find((c) => c.id === radarId);
 	if (camera) {
+		const streamUrl = getCameraStreamUrl(camera, mode);
+
+		const video = cameraCell.querySelector(".camera-video") as HTMLVideoElement;
+		if (video) {
+			video.src = streamUrl;
+		}
+
 		const ipDisplay = cameraCell.querySelector(".camera-ip");
 		if (ipDisplay) {
-			const streamPath =
-				mode === "day" ? camera.dayStreamPath : camera.nightStreamPath;
-			ipDisplay.textContent = `${camera.ip}:${camera.port}${streamPath}`;
+			ipDisplay.textContent = streamUrl;
 		}
 	}
 }
@@ -141,9 +146,7 @@ function renderAlertGrid(): void {
         `;
 			}
 
-			const streamPath = isNight
-				? camera.nightStreamPath
-				: camera.dayStreamPath;
+			const streamUrl = getCameraStreamUrl(camera, mode);
 
 			return `
         <div class="track-alert-camera" data-radar-id="${radarId}">
@@ -157,12 +160,9 @@ function renderAlertGrid(): void {
           </div>
           <div class="track-alert-camera-feed">
             <button class="track-alert-dismiss" data-radar-id="${radarId}">✕</button>
-            <div class="camera-placeholder">
-              <div class="camera-placeholder-icon">📷</div>
-              <div>Connecting...</div>
-              <div class="camera-ip">${camera.ip}:${camera.port}${streamPath}</div>
-            </div>
+            <video class="camera-video" data-camera-id="${radarId}" src="${streamUrl}" autoplay muted playsinline></video>
           </div>
+          <div class="camera-ip">${streamUrl}</div>
         </div>
       `;
 		})

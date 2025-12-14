@@ -135,3 +135,16 @@ bun run fe
 - **Backend**: Python Flask server
 - **Runtime**: Bun (for frontend and dev scripts), Python 3.8+ (for backend)
 - **No build process required** for frontend
+
+
+## Cameras
+
+```
+docker run --rm --name rtsp-to-web \
+  -p 8083:8083 \
+  -p 8443:8443/udp \
+  -p 50000-50010:50000-50010/udp \
+  -v "$PWD/config.json:/config/config.json" \
+  ghcr.io/deepch/rtsptoweb:latest
+
+```
