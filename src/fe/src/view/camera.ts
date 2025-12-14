@@ -4,6 +4,7 @@ import {
 	type CameraMode,
 	getCameraStreamUrl,
 } from "../config.ts";
+import { connectMSE } from "../stream.ts";
 
 let cameraGrid: HTMLElement | null = null;
 const cameraModes: Map<number, CameraMode> = new Map();
@@ -19,7 +20,18 @@ export function initCameraView(): void {
 	if (cameraGrid) {
 		renderCameraGrid();
 		setupModeToggleListeners();
+		connectAllCameras();
 	}
+}
+
+function connectAllCameras(): void {
+	const videos = document.querySelectorAll<HTMLVideoElement>(".camera-video");
+	videos.forEach((video) => {
+		const streamUrl = video.dataset.streamUrl;
+		if (streamUrl) {
+			connectMSE(video, streamUrl).catch(console.error);
+		}
+	});
 }
 
 function renderCameraGrid(): void {
@@ -71,7 +83,8 @@ function updateCameraModeUI(cameraId: number, mode: CameraMode): void {
 
 		const video = cameraCell.querySelector(".camera-video") as HTMLVideoElement;
 		if (video) {
-			video.src = streamUrl;
+			video.dataset.streamUrl = streamUrl;
+			connectMSE(video, streamUrl).catch(console.error);
 		}
 
 		const ipDisplay = cameraCell.querySelector(".camera-ip");
@@ -96,7 +109,7 @@ function createCameraCell(camera: CameraConfig): string {
         <span class="camera-status offline">OFFLINE</span>
       </div>
       <div class="camera-feed">
-        <video class="camera-video" data-camera-id="${camera.id}" src="${streamUrl}" autoplay muted playsinline></video>
+        <video class="camera-video" data-camera-id="cam-${camera.id}" data-stream-url="${streamUrl}" autoplay muted playsinline></video>
         <div class="camera-placeholder">
           <div class="camera-placeholder-icon">📷</div>
           <div>No Signal</div>

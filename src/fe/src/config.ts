@@ -14,7 +14,7 @@ export const MAX_DOTS: number = 200; // Maximum number of dots to display (10 se
 // Camera Configuration
 export type CameraMode = "day" | "night";
 
-export const STREAM_BASE_URL = "http://127.0.0.1:8083";
+export const STREAM_BASE_URL = "ws://127.0.0.1:8083";
 
 export interface CameraConfig {
 	id: number;
@@ -28,7 +28,7 @@ export function getCameraStreamUrl(
 	mode: CameraMode,
 ): string {
 	const channelId = mode === "day" ? 0 : 1;
-	return `${STREAM_BASE_URL}/stream/${camera.streamId}/channel/${channelId}/hlsll/live/index.m3u8`;
+	return `${STREAM_BASE_URL}/stream/${camera.streamId}/channel/${channelId}/mse?uuid=${camera.streamId}&channel=${channelId}`;
 }
 
 export const CAMERAS: CameraConfig[] = [

@@ -1,4 +1,5 @@
 import { CAMERAS, type CameraMode, getCameraStreamUrl } from "../config.ts";
+import { connectMSE } from "../stream.ts";
 
 let alertOverlay: HTMLElement | null = null;
 let alertGrid: HTMLElement | null = null;
@@ -83,7 +84,8 @@ function updateAlertCameraModeUI(radarId: number, mode: CameraMode): void {
 
 		const video = cameraCell.querySelector(".camera-video") as HTMLVideoElement;
 		if (video) {
-			video.src = streamUrl;
+			video.dataset.streamUrl = streamUrl;
+			connectMSE(video, streamUrl).catch(console.error);
 		}
 
 		const ipDisplay = cameraCell.querySelector(".camera-ip");
@@ -160,7 +162,7 @@ function renderAlertGrid(): void {
           </div>
           <div class="track-alert-camera-feed">
             <button class="track-alert-dismiss" data-radar-id="${radarId}">✕</button>
-            <video class="camera-video" data-camera-id="${radarId}" src="${streamUrl}" autoplay muted playsinline></video>
+            <video class="camera-video" data-camera-id="alert-${radarId}" data-stream-url="${streamUrl}" autoplay muted playsinline></video>
           </div>
           <div class="camera-ip">${streamUrl}</div>
         </div>
@@ -169,6 +171,15 @@ function renderAlertGrid(): void {
 		.join("");
 
 	alertGrid.innerHTML = alertHtml;
+
+	// Connect MSE for all alert videos
+	const videos = alertGrid.querySelectorAll<HTMLVideoElement>(".camera-video");
+	videos.forEach((video) => {
+		const streamUrl = video.dataset.streamUrl;
+		if (streamUrl) {
+			connectMSE(video, streamUrl).catch(console.error);
+		}
+	});
 }
 
 function dismissAlert(radarId: number): void {
