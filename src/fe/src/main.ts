@@ -25,6 +25,11 @@ import {
 type ViewType = "radar" | "camera";
 let currentView: ViewType = "radar";
 
+// Target render frame rate (lower to reduce CPU/GPU load)
+const TARGET_FPS = 30;
+const FRAME_INTERVAL_MS = 1000 / TARGET_FPS;
+let lastFrameTime = 0;
+
 // Initialize application
 function init(): void {
 	initCanvas(); // Creates offscreen canvas and draws static base
@@ -74,8 +79,15 @@ function initTabBar(): void {
 	});
 }
 
-// Render frame
-function render(): void {
+// Render frame (throttled to TARGET_FPS to reduce compositor usage)
+function render(timestamp: number): void {
+	// Throttle to desired FPS to avoid overloading VizCompositorTh
+	if (timestamp - lastFrameTime < FRAME_INTERVAL_MS) {
+		requestAnimationFrame(render);
+		return;
+	}
+	lastFrameTime = timestamp;
+
 	if (currentView === "radar") {
 		checkServerAvailability();
 		updateSweepLine(HEALTH_CHECK_INTERVAL); // Update sweep line animation
@@ -102,4 +114,4 @@ window.addEventListener("resize", () => {
 
 // Start application
 init();
-render();
+requestAnimationFrame(render);

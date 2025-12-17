@@ -7,7 +7,6 @@ import logging.handlers
 import os
 import json
 from datetime import datetime
-from jetson_gpio_controller import JetsonGPIOController
 
 class TrackData(TypedDict):
     track_id: int
@@ -36,6 +35,7 @@ class RadarTracksServer:
         # GPIO controller for MOSFET control
         self.gpio_controller: Optional[JetsonGPIOController] = None
         try:
+            from jetson_gpio_controller import JetsonGPIOController
             self.gpio_controller = JetsonGPIOController()
         except Exception as e:
             logging.warning(f"Failed to initialize GPIO controller: {e}. Running without GPIO control.")

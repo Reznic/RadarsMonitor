@@ -17,13 +17,14 @@ python src/be/radars/radars_manager.py &> python.log &
 echo "Starting Bun frontend..."
 $BUN_PATH run prod &> bun.log &
 
-echo "Starting rtsp-to-web..."
-docker run --rm --name rtsp-to-web \
+#echo "Starting rtsp-to-web..."
+sudo docker run --rm --name rtsp-to-web \
   -p 8083:8083 \
   -p 8443:8443/udp \
   -p 50000-50010:50000-50010/udp \
   -v "$PWD/config.json:/config/config.json" \
-  ghcr.io/deepch/rtsptoweb:latest &> rtsp-to-web.log &
+  ghcr.io/deepch/rtsptoweb:latest \
+  &> rtsp-to-web.log &
 
 # Wait for all background processes
 wait

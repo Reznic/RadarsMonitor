@@ -37,7 +37,9 @@ export function initCanvas(): void {
 	ensureVehicleImageRequested();
 
 	// Calculate size based on viewport - use the smaller dimension to keep it circular
-	const size = Math.min(window.innerWidth, window.innerHeight) * 0.95; // 95% of viewport
+	// Cap maximum size to keep canvas resolution reasonable on large/high-DPI displays
+	const maxSize = 900; // pixels
+	const size = Math.min(Math.min(window.innerWidth, window.innerHeight) * 0.95, maxSize);
 	canvas.width = size;
 	canvas.height = size;
 

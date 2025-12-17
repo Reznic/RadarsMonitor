@@ -9,7 +9,24 @@ export const RADAR_CHECK_INTERVAL: number = 50; // 50 milliseconds (matching dat
 export const SERVER_TIMEOUT: number = 1000; // Clear dots if no data for 1 second
 
 // Radar settings
-export const MAX_DOTS: number = 200; // Maximum number of dots to display (10 seconds of history at 50ms intervals)
+// Lower history length to reduce per-frame drawing work (CPU/GPU)
+// 100 dots - 5 seconds of history at 50ms intervals
+export const MAX_DOTS: number = 100;
+
+// Mapping from backend radar IDs (serials) to camera IDs (1-8).
+// This is used so that when a specific radar reports a track,
+// the alert overlay knows which camera stream to show.
+// NOTE: Adjust these mappings to match your actual radar serials - cameras.
+export const RADAR_TO_CAMERA_ID: Record<string, number> = {
+	"00ED24D1": 1,
+	"00ED248C": 2,
+	"016C2377": 3,
+	"016A5BCC": 4,
+	"016C4AB6": 5,
+	"016A5874": 6,
+	"00D20CBB": 7,
+	"00D20CD7": 8,
+};
 
 // Camera Configuration
 export type CameraMode = "day" | "night";

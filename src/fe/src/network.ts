@@ -8,6 +8,7 @@ import {
 	HEALTH_CHECK_INTERVAL,
 	MAX_DOTS,
 	RADAR_CHECK_INTERVAL,
+	RADAR_TO_CAMERA_ID,
 	SERVER_TIMEOUT,
 } from "./config.ts";
 import { showTrackAlert } from "./view/alert.ts";
@@ -375,6 +376,9 @@ async function pollRadarData(): Promise<void> {
 		// Process each radar's track data
 		const currentTrackIds = new Set<number>();
 		for (const [radarId, trackData] of Object.entries(data)) {
+			// Map backend radar ID (e.g. serial "00ED24D1") to a camera ID (1-8)
+			const cameraIdForRadar = RADAR_TO_CAMERA_ID[radarId];
+
 			// Convert azimuth from degrees to radians
 			const azimuthRad = (trackData.azimuth * Math.PI) / 180;
 
@@ -387,13 +391,11 @@ async function pollRadarData(): Promise<void> {
 			// Convert cartesian to canvas coordinates
 			const canvasPos = cartesianToCanvas(x, y);
 
-			// Extract radar ID number
-			const radarIdNum = Number.parseInt(radarId.replace(/\D/g, ""), 10) || 0;
-
 			// Create dot with all necessary data
 			const dot: RadarDot = {
 				track_id: trackData.track_id,
-				radar_id: radarIdNum,
+				// Use mapped camera ID for coloring / association (0 if unmapped)
+				radar_id: cameraIdForRadar ?? 0,
 				x: x,
 				y: y,
 				canvasX: canvasPos.x,
@@ -407,7 +409,10 @@ async function pollRadarData(): Promise<void> {
 			// Check if this is a new track
 			if (!knownTrackIds.has(trackData.track_id)) {
 				knownTrackIds.add(trackData.track_id);
-				newTrackRadarIds.push(radarIdNum);
+				// Only trigger camera alerts when we know which camera to show
+				if (cameraIdForRadar !== undefined) {
+					newTrackRadarIds.push(cameraIdForRadar);
+				}
 			}
 
 			// Add to current dots
