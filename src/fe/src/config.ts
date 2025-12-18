@@ -13,21 +13,6 @@ export const SERVER_TIMEOUT: number = 1000; // Clear dots if no data for 1 secon
 // 100 dots - 5 seconds of history at 50ms intervals
 export const MAX_DOTS: number = 100;
 
-// Mapping from backend radar IDs (serials) to camera IDs (1-8).
-// This is used so that when a specific radar reports a track,
-// the alert overlay knows which camera stream to show.
-// NOTE: Adjust these mappings to match your actual radar serials - cameras.
-export const RADAR_TO_CAMERA_ID: Record<string, number> = {
-	"00ED24D1": 1,
-	"00ED248C": 2,
-	"016C2377": 3,
-	"016A5BCC": 4,
-	"016C4AB6": 5,
-	"016A5874": 6,
-	"00D20CBB": 7,
-	"00D20CD7": 8,
-};
-
 // Camera Configuration
 export type CameraMode = "day" | "night";
 
@@ -37,6 +22,7 @@ export interface CameraConfig {
 	id: number;
 	name: string;
 	streamId: string;
+	radarSerial: string; // Backend radar ID (serial) associated with this camera
 }
 
 // Channel IDs: 0 = day, 1 = night
@@ -49,12 +35,18 @@ export function getCameraStreamUrl(
 }
 
 export const CAMERAS: CameraConfig[] = [
-	{ id: 1, name: "Camera 1", streamId: "cam1" },
-	{ id: 2, name: "Camera 2", streamId: "cam2" },
-	{ id: 3, name: "Camera 3", streamId: "cam3" },
-	{ id: 4, name: "Camera 4", streamId: "cam4" },
-	{ id: 5, name: "Camera 5", streamId: "cam5" },
-	{ id: 6, name: "Camera 6", streamId: "cam6" },
-	{ id: 7, name: "Camera 7", streamId: "cam7" },
-	{ id: 8, name: "Camera 8", streamId: "cam8" },
+	{ id: 1, name: "Camera 1", streamId: "cam1", radarSerial: "00ED24D1" },
+	{ id: 2, name: "Camera 2", streamId: "cam2", radarSerial: "00ED248C" },
+	{ id: 3, name: "Camera 3", streamId: "cam3", radarSerial: "016C2377" },
+	{ id: 4, name: "Camera 4", streamId: "cam4", radarSerial: "016A5BCC" },
+	{ id: 5, name: "Camera 5", streamId: "cam5", radarSerial: "016C4AB6" },
+	{ id: 6, name: "Camera 6", streamId: "cam6", radarSerial: "016A5874" },
+	{ id: 7, name: "Camera 7", streamId: "cam7", radarSerial: "00D20CBB" },
+	{ id: 8, name: "Camera 8", streamId: "cam8", radarSerial: "00D20CD7" },
 ];
+
+// Helper to get camera ID by radar serial
+export function getCameraIdByRadarSerial(radarSerial: string): number | undefined {
+	const camera = CAMERAS.find((c) => c.radarSerial === radarSerial);
+	return camera?.id;
+}

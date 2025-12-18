@@ -17,8 +17,14 @@ python src/be/radars/radars_manager.py &> python.log &
 echo "Starting Bun frontend..."
 $BUN_PATH run prod &> bun.log &
 
-#echo "Starting rtsp-to-web..."
-sudo docker run --rm --name rtsp-to-web \
+# Start rtsp-to-web (use sudo on Linux only)
+echo "Starting rtsp-to-web..."
+DOCKER_CMD="docker"
+if [ "$(uname -s)" = "Linux" ]; then
+  DOCKER_CMD="sudo docker"
+fi
+
+$DOCKER_CMD run --rm --name rtsp-to-web \
   -p 8083:8083 \
   -p 8443:8443/udp \
   -p 50000-50010:50000-50010/udp \

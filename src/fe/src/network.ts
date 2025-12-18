@@ -8,8 +8,8 @@ import {
 	HEALTH_CHECK_INTERVAL,
 	MAX_DOTS,
 	RADAR_CHECK_INTERVAL,
-	RADAR_TO_CAMERA_ID,
 	SERVER_TIMEOUT,
+	getCameraIdByRadarSerial,
 } from "./config.ts";
 import { showTrackAlert } from "./view/alert.ts";
 import { cartesianToCanvas } from "./view/radar.ts";
@@ -377,7 +377,7 @@ async function pollRadarData(): Promise<void> {
 		const currentTrackIds = new Set<number>();
 		for (const [radarId, trackData] of Object.entries(data)) {
 			// Map backend radar ID (e.g. serial "00ED24D1") to a camera ID (1-8)
-			const cameraIdForRadar = RADAR_TO_CAMERA_ID[radarId];
+			const cameraIdForRadar = getCameraIdByRadarSerial(radarId);
 
 			// Convert azimuth from degrees to radians
 			const azimuthRad = (trackData.azimuth * Math.PI) / 180;
