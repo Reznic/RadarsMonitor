@@ -8,6 +8,30 @@ logLevel: info
 logDestinations: [stdout]
 
 ###############################################
+# Authentication
+# Allow anonymous access for publish/read/playback from any IP
+# API/metrics require admin credentials
+
+authInternalUsers:
+  - user: any
+    pass:
+    ips: []
+    permissions:
+      - action: publish
+        path:
+      - action: read
+        path:
+      - action: playback
+        path:
+  - user: admin
+    pass: admin
+    ips: []
+    permissions:
+      - action: api
+      - action: metrics
+      - action: pprof
+
+###############################################
 # RTSP server (for receiving streams)
 
 rtsp: yes
