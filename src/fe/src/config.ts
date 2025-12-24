@@ -16,7 +16,8 @@ export const MAX_DOTS: number = 100;
 // Camera Configuration
 export type CameraMode = "day" | "night";
 
-export const STREAM_BASE_URL = "ws://127.0.0.1:8083";
+// MediaMTX WebRTC (WHEP) server
+export const STREAM_BASE_URL = "http://127.0.0.1:8889";
 
 export interface CameraConfig {
 	id: number;
@@ -25,13 +26,17 @@ export interface CameraConfig {
 	radarSerial: string; // Backend radar ID (serial) associated with this camera
 }
 
-// Channel IDs: 0 = day, 1 = night
+// Stream type
+export type StreamType = "webrtc" | "mse";
+
+// MediaMTX WHEP URL format: http://host:8889/{streamId}_{channelId}/whep
+// Channel 0 = day, Channel 1 = night
 export function getCameraStreamUrl(
 	camera: CameraConfig,
 	mode: CameraMode,
 ): string {
 	const channelId = mode === "day" ? 0 : 1;
-	return `${STREAM_BASE_URL}/stream/${camera.streamId}/channel/${channelId}/mse?uuid=${camera.streamId}&channel=${channelId}`;
+	return `${STREAM_BASE_URL}/${camera.streamId}_${channelId}/whep`;
 }
 
 export const CAMERAS: CameraConfig[] = [

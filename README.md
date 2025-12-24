@@ -137,14 +137,44 @@ bun run fe
 - **No build process required** for frontend
 
 
-## Cameras
+## Cameras (MediaMTX)
 
+The project uses [MediaMTX](https://github.com/bluenviron/mediamtx) for RTSP to WebRTC streaming.
+
+### Start MediaMTX
+
+```bash
+docker run -d --name mediamtx \
+  -p 8554:8554 \
+  -p 8889:8889 \
+  -p 8189:8189/udp \
+  -p 9997:9997 \
+  -v "$PWD/mediamtx.yml:/mediamtx.yml" \
+  bluenviron/mediamtx:latest
 ```
-docker run --rm --name rtsp-to-web \
-  -p 8083:8083 \
-  -p 8443:8443/udp \
-  -p 50000-50010:50000-50010/udp \
-  -v "$PWD/config.json:/config/config.json" \
-  ghcr.io/deepch/rtsptoweb:latest
 
+### Configuration
+
+Camera streams are configured in `mediamtx.yml`:
+- Each camera has day (channel 0) and night (channel 1) streams
+- Paths use format: `cam{N}_{channel}` (e.g., `cam7_0` for Camera 7 day mode)
+- WebRTC WHEP endpoint: `http://localhost:8889/{path}/whep`
+
+### Ports
+
+| Port | Protocol | Description |
+|------|----------|-------------|
+| 8554 | TCP | RTSP server |
+| 8889 | HTTP | WebRTC WHEP endpoint |
+| 8189 | UDP | WebRTC ICE |
+| 9997 | HTTP | API server |
+
+### RTSP Transport
+
+By default, `mediamtx.yml` uses TCP for RTSP source connections (`rtspTransport: tcp`). On Linux with native Docker networking, you can try UDP for lower latency:
+
+```yaml
+pathDefaults:
+  rtspTransport: udp  # or tcp
+  sourceOnDemand: yes
 ```

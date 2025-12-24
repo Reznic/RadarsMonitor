@@ -1,5 +1,5 @@
 import { CAMERAS, type CameraMode, getCameraStreamUrl } from "../config.ts";
-import { connectMSE } from "../stream.ts";
+import { connectWebRTC } from "../stream/index.ts";
 
 let alertOverlay: HTMLElement | null = null;
 let alertGrid: HTMLElement | null = null;
@@ -85,7 +85,7 @@ function updateAlertCameraModeUI(radarId: number, mode: CameraMode): void {
 		const video = cameraCell.querySelector(".camera-video") as HTMLVideoElement;
 		if (video) {
 			video.dataset.streamUrl = streamUrl;
-			connectMSE(video, streamUrl).catch(console.error);
+			connectWebRTC(video, streamUrl).catch(console.error);
 		}
 
 		const ipDisplay = cameraCell.querySelector(".camera-ip");
@@ -177,7 +177,7 @@ function renderAlertGrid(): void {
 	videos.forEach((video) => {
 		const streamUrl = video.dataset.streamUrl;
 		if (streamUrl) {
-			connectMSE(video, streamUrl).catch(console.error);
+			connectWebRTC(video, streamUrl).catch(console.error);
 		}
 	});
 }

@@ -4,7 +4,7 @@ import {
 	type CameraMode,
 	getCameraStreamUrl,
 } from "../config.ts";
-import { connectMSE } from "../stream.ts";
+import { connectWebRTC } from "../stream/index.ts";
 
 let cameraGrid: HTMLElement | null = null;
 const cameraModes: Map<number, CameraMode> = new Map();
@@ -29,7 +29,7 @@ function connectAllCameras(): void {
 	videos.forEach((video) => {
 		const streamUrl = video.dataset.streamUrl;
 		if (streamUrl) {
-			connectMSE(video, streamUrl).catch(console.error);
+			connectWebRTC(video, streamUrl).catch(console.error);
 		}
 	});
 }
@@ -84,7 +84,7 @@ function updateCameraModeUI(cameraId: number, mode: CameraMode): void {
 		const video = cameraCell.querySelector(".camera-video") as HTMLVideoElement;
 		if (video) {
 			video.dataset.streamUrl = streamUrl;
-			connectMSE(video, streamUrl).catch(console.error);
+			connectWebRTC(video, streamUrl).catch(console.error);
 		}
 
 		const ipDisplay = cameraCell.querySelector(".camera-ip");

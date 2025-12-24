@@ -1,0 +1,93 @@
+# MediaMTX configuration for RadarsMonitor
+# Replaces RTSPtoWEB for RTSP to WebRTC streaming
+
+###############################################
+# Global settings
+
+logLevel: info
+logDestinations: [stdout]
+
+###############################################
+# RTSP server (for receiving streams)
+
+rtsp: yes
+rtspTransports: [udp, tcp]
+rtspAddress: :8554
+
+# UDP RTP ports for incoming streams
+rtpAddress: :8000
+rtcpAddress: :8001
+
+# Write buffer for UDP
+writeQueueSize: 2048
+
+###############################################
+# WebRTC server
+
+webrtc: yes
+webrtcAddress: :8889
+webrtcICEServers2:
+  - url: stun:stun.l.google.com:19302
+
+###############################################
+# API server (for stream info)
+
+api: yes
+apiAddress: :9997
+
+###############################################
+# Paths - RTSP proxy sources
+# Each camera has day (channel 0) and night (channel 1) streams
+
+pathDefaults:
+  rtspTransport: tcp
+  sourceOnDemand: yes
+
+paths:
+  # Camera 1
+  cam1_0:
+    source: rtsp://admin:password@192.168.1.35:554/live?channel=0&subtype=0
+  cam1_1:
+    source: rtsp://admin:password@192.168.1.35:554/live?channel=1&subtype=0
+
+  # Camera 2
+  cam2_0:
+    source: rtsp://admin:password@192.168.1.36:554/live?channel=0&subtype=0
+  cam2_1:
+    source: rtsp://admin:password@192.168.1.36:554/live?channel=1&subtype=0
+
+  # Camera 3
+  cam3_0:
+    source: rtsp://admin:password@192.168.1.37:554/live?channel=0&subtype=0
+  cam3_1:
+    source: rtsp://admin:password@192.168.1.37:554/live?channel=1&subtype=0
+
+  # Camera 4
+  cam4_0:
+    source: rtsp://admin:password@192.168.1.38:554/live?channel=0&subtype=0
+  cam4_1:
+    source: rtsp://admin:password@192.168.1.38:554/live?channel=1&subtype=0
+
+  # Camera 5
+  cam5_0:
+    source: rtsp://admin:password@192.168.1.39:554/live?channel=0&subtype=0
+  cam5_1:
+    source: rtsp://admin:password@192.168.1.39:554/live?channel=1&subtype=0
+
+  # Camera 6
+  cam6_0:
+    source: rtsp://admin:password@192.168.1.40:554/live?channel=0&subtype=0
+  cam6_1:
+    source: rtsp://admin:password@192.168.1.40:554/live?channel=1&subtype=0
+
+  # Camera 7
+  cam7_0:
+    source: rtsp://admin:password@192.168.1.41:554/live?channel=0&subtype=0
+  cam7_1:
+    source: rtsp://admin:password@192.168.1.41:554/live?channel=1&subtype=0
+
+  # Camera 8
+  cam8_0:
+    source: rtsp://admin:password@192.168.1.42:554/live?channel=0&subtype=0
+  cam8_1:
+    source: rtsp://admin:password@192.168.1.42:554/live?channel=1&subtype=0

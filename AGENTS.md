@@ -104,6 +104,27 @@ interface RadarStatus {
 - Manual verification: run full stack and verify HUD + radar plotting
 - Type check with `tsc --noEmit` before commits
 
+## Camera Streaming (MediaMTX)
+
+The project uses MediaMTX for RTSP to WebRTC streaming.
+
+**Start MediaMTX:**
+```bash
+docker run -d --name mediamtx \
+  -p 8554:8554 -p 8889:8889 -p 8189:8189/udp -p 9997:9997 \
+  -v "$PWD/mediamtx.yml:/mediamtx.yml" \
+  bluenviron/mediamtx:latest
+```
+
+**Key files:**
+- `mediamtx.yml` - Camera RTSP sources and streaming config
+- `src/fe/src/stream/webrtc.ts` - WebRTC WHEP client
+- `src/fe/src/config.ts` - Stream URLs (`STREAM_BASE_URL`)
+
+**WebRTC URL format:** `http://localhost:8889/{streamId}_{channel}/whep`
+- Channel 0 = day, Channel 1 = night
+- Example: `http://localhost:8889/cam7_0/whep`
+
 ## Notes
 
 - Demo mode (`demo.py`) provides simulated radar data without hardware
