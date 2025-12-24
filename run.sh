@@ -17,20 +17,25 @@ python src/be/radars/radars_manager.py &> python.log &
 echo "Starting Bun frontend..."
 $BUN_PATH run prod &> bun.log &
 
-# Start rtsp-to-web (use sudo on Linux only)
-echo "Starting rtsp-to-web..."
+# Start MediaMTX for camera streaming (use sudo on Linux only)
+echo "Starting MediaMTX..."
 DOCKER_CMD="docker"
 if [ "$(uname -s)" = "Linux" ]; then
   DOCKER_CMD="sudo docker"
 fi
 
-$DOCKER_CMD run --rm --name rtsp-to-web \
-  -p 8083:8083 \
-  -p 8443:8443/udp \
-  -p 50000-50010:50000-50010/udp \
-  -v "$PWD/config.json:/config/config.json" \
-  ghcr.io/deepch/rtsptoweb:latest \
-  &> rtsp-to-web.log &
+# Stop existing mediamtx container if running
+$DOCKER_CMD stop mediamtx 2>/dev/null || true
+$DOCKER_CMD rm mediamtx 2>/dev/null || true
+
+$DOCKER_CMD run -d --name mediamtx \
+  -p 8554:8554 \
+  -p 8889:8889 \
+  -p 8189:8189/udp \
+  -p 9997:9997 \
+  -v "$PWD/mediamtx.yml:/mediamtx.yml" \
+  bluenviron/mediamtx:latest \
+  &> mediamtx.log &
 
 # Wait for all background processes
 wait
