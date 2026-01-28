@@ -1,5 +1,6 @@
 import { CAMERAS, type CameraMode, getCameraStreamUrl } from "../config.ts";
-import { connectWebRTC } from "../stream/index.ts";
+import { connectWebRTC, disconnectWebRTC } from "../stream/index.ts";
+import { getCameraStreamIfActive } from "./camera.ts";
 
 let alertOverlay: HTMLElement | null = null;
 let alertGrid: HTMLElement | null = null;
@@ -10,6 +11,9 @@ const activeAlerts: Set<number> = new Set();
 
 // Track camera modes for alert cameras (separate from main camera view)
 const alertCameraModes: Map<number, CameraMode> = new Map();
+
+// Track which alert streams are reused (don't disconnect these)
+const reusedStreams: Set<number> = new Set();
 
 // Determine if it's currently nighttime (between 6 PM and 6 AM)
 function isNightTime(): boolean {
@@ -84,8 +88,26 @@ function updateAlertCameraModeUI(radarId: number, mode: CameraMode): void {
 
 		const video = cameraCell.querySelector(".camera-video") as HTMLVideoElement;
 		if (video) {
-			video.dataset.streamUrl = streamUrl;
-			connectWebRTC(video, streamUrl).catch(console.error);
+			// Check if we can reuse existing stream from main view
+			const existingStream = getCameraStreamIfActive(radarId, mode);
+
+			if (existingStream) {
+				// Reuse existing stream - no new WebRTC connection needed
+				const cameraId = `alert-${radarId}`;
+				disconnectWebRTC(cameraId); // Disconnect if we had created one
+				reusedStreams.add(radarId);
+				video.srcObject = existingStream;
+				video.play().catch(console.error);
+			} else {
+				// No existing stream available, create new connection
+				reusedStreams.delete(radarId);
+				const cameraId = `alert-${radarId}`;
+				disconnectWebRTC(cameraId);
+				video.srcObject = null;
+
+				video.dataset.streamUrl = streamUrl;
+				connectWebRTC(video, streamUrl).catch(console.error);
+			}
 		}
 
 		const ipDisplay = cameraCell.querySelector(".camera-ip");
@@ -172,17 +194,56 @@ function renderAlertGrid(): void {
 
 	alertGrid.innerHTML = alertHtml;
 
-	// Connect MSE for all alert videos
+	// Connect streams for all alert videos (reuse if available from main view)
 	const videos = alertGrid.querySelectorAll<HTMLVideoElement>(".camera-video");
 	videos.forEach((video) => {
-		const streamUrl = video.dataset.streamUrl;
-		if (streamUrl) {
-			connectWebRTC(video, streamUrl).catch(console.error);
+		const radarIdAttr = video.closest(".track-alert-camera")?.getAttribute(
+			"data-radar-id",
+		);
+		if (!radarIdAttr) return;
+
+		const radarId = Number.parseInt(radarIdAttr, 10);
+		const mode = alertCameraModes.get(radarId) || getDefaultMode();
+
+		// Check if we can reuse existing stream from main camera view
+		const existingStream = getCameraStreamIfActive(radarId, mode);
+
+		if (existingStream) {
+			// Reuse existing stream - no new WebRTC connection needed!
+			reusedStreams.add(radarId);
+			video.srcObject = existingStream;
+			video.play().catch(console.error);
+			console.log(
+				`[Alert] Reusing existing stream for camera ${radarId} (${mode} mode)`,
+			);
+		} else {
+			// Create new connection only if stream not available
+			reusedStreams.delete(radarId);
+			const streamUrl = video.dataset.streamUrl;
+			if (streamUrl) {
+				connectWebRTC(video, streamUrl).catch(console.error);
+			}
 		}
 	});
 }
 
 function dismissAlert(radarId: number): void {
+	// Only disconnect if we created the stream (not reused from main view)
+	if (!reusedStreams.has(radarId)) {
+		const cameraId = `alert-${radarId}`;
+		disconnectWebRTC(cameraId);
+	} else {
+		// Clear the srcObject reference but don't disconnect the underlying stream
+		const cameraCell = alertGrid?.querySelector(
+			`.track-alert-camera[data-radar-id="${radarId}"]`,
+		);
+		const video = cameraCell?.querySelector(".camera-video") as HTMLVideoElement;
+		if (video) {
+			video.srcObject = null;
+		}
+	}
+
+	reusedStreams.delete(radarId);
 	activeAlerts.delete(radarId);
 	alertCameraModes.delete(radarId);
 
@@ -194,6 +255,26 @@ function dismissAlert(radarId: number): void {
 }
 
 function dismissAllAlerts(): void {
+	// Disconnect only streams we created (not reused from main view)
+	for (const radarId of activeAlerts) {
+		if (!reusedStreams.has(radarId)) {
+			const cameraId = `alert-${radarId}`;
+			disconnectWebRTC(cameraId);
+		} else {
+			// Clear srcObject reference for reused streams
+			const cameraCell = alertGrid?.querySelector(
+				`.track-alert-camera[data-radar-id="${radarId}"]`,
+			);
+			const video = cameraCell?.querySelector(
+				".camera-video",
+			) as HTMLVideoElement;
+			if (video) {
+				video.srcObject = null;
+			}
+		}
+	}
+
+	reusedStreams.clear();
 	activeAlerts.clear();
 	alertCameraModes.clear();
 	if (alertOverlay) {

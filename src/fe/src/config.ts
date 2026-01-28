@@ -3,7 +3,7 @@ export const API_BASE: string = "http://localhost:1337";
 
 // Polling intervals
 export const HEALTH_CHECK_INTERVAL: number = 1000; // 1 second
-export const RADAR_CHECK_INTERVAL: number = 50; // 50 milliseconds (matching data sampling rate)
+export const RADAR_CHECK_INTERVAL: number = 200; // 200 milliseconds (matching data sampling rate)
 
 // Timeout settings
 export const SERVER_TIMEOUT: number = 1000; // Clear dots if no data for 1 second
@@ -40,14 +40,14 @@ export function getCameraStreamUrl(
 }
 
 export const CAMERAS: CameraConfig[] = [
-	{ id: 1, name: "Camera 1", streamId: "cam1", radarSerial: "00ED24D1" },
-	{ id: 2, name: "Camera 2", streamId: "cam2", radarSerial: "00ED248C" },
-	{ id: 3, name: "Camera 3", streamId: "cam3", radarSerial: "016C2377" },
-	{ id: 4, name: "Camera 4", streamId: "cam4", radarSerial: "016A5BCC" },
-	{ id: 5, name: "Camera 5", streamId: "cam5", radarSerial: "016C4AB6" },
-	{ id: 6, name: "Camera 6", streamId: "cam6", radarSerial: "016A5874" },
-	{ id: 7, name: "Camera 7", streamId: "cam7", radarSerial: "00D20CBB" },
-	{ id: 8, name: "Camera 8", streamId: "cam8", radarSerial: "00D20CD7" },
+	{ id: 1, name: "Camera 1", streamId: "cam1", radarSerial: "016A5BCC" },
+	{ id: 2, name: "Camera 2", streamId: "cam2", radarSerial: "016A5C3D" },
+	{ id: 3, name: "Camera 3", streamId: "cam3", radarSerial: "016C3B48" },
+	{ id: 4, name: "Camera 4", streamId: "cam4", radarSerial: "00ED248C" },
+	{ id: 5, name: "Camera 5", streamId: "cam5", radarSerial: "00D20CBB" },
+	{ id: 6, name: "Camera 6", streamId: "cam6", radarSerial: "00ED24D1" },
+	{ id: 7, name: "Camera 7", streamId: "cam7", radarSerial: "00ED2507" },
+	{ id: 8, name: "Camera 8", streamId: "cam8", radarSerial: "00D20D08" },
 ];
 
 // Helper to get camera ID by radar serial

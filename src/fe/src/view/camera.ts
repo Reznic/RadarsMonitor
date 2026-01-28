@@ -123,3 +123,31 @@ function createCameraCell(camera: CameraConfig): string {
 export function getCameraMode(cameraId: number): CameraMode {
 	return cameraModes.get(cameraId) || "day";
 }
+
+// Check if a camera is already active in the main view with the same mode
+// Returns the video element's srcObject if available, null otherwise
+export function getCameraStreamIfActive(
+	cameraId: number,
+	mode: CameraMode,
+): MediaStream | null {
+	// Check if main camera view is visible and has this camera
+	const cameraCell = document.querySelector(
+		`.camera-cell[data-camera-id="${cameraId}"]`,
+	);
+	if (!cameraCell) return null;
+
+	// Check if mode matches
+	const currentMode = cameraModes.get(cameraId);
+	if (currentMode !== mode) return null;
+
+	// Check if video element exists and has an active stream
+	const video = cameraCell.querySelector(
+		`.camera-video[data-camera-id="cam-${cameraId}"]`,
+	) as HTMLVideoElement | null;
+
+	if (video && video.srcObject instanceof MediaStream) {
+		return video.srcObject;
+	}
+
+	return null;
+}
