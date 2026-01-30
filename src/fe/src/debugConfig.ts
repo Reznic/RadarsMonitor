@@ -3,7 +3,7 @@ export interface ConfigField {
 	key: string;
 	label: string;
 	enabled: boolean;
-	section: string;
+	section: "tooltip" | "alerts";
 }
 
 export interface TooltipFieldConfig {
@@ -66,16 +66,43 @@ export function getAvailableFields(): ConfigField[] {
 			key: "show_tooltips",
 			label: "Show Tooltips",
 			enabled: currentConfig.show_tooltips,
+			section: "tooltip",
 		},
-		{ key: "track_id", label: "Track ID", enabled: currentConfig.track_id },
-		{ key: "class", label: "Class", enabled: currentConfig.class },
-		{ key: "range", label: "Range", enabled: currentConfig.range },
-		{ key: "azimuth", label: "Azimuth", enabled: currentConfig.azimuth },
-		{ key: "timestamp", label: "Timestamp", enabled: currentConfig.timestamp },
+		{
+			key: "track_id",
+			label: "Track ID",
+			enabled: currentConfig.track_id,
+			section: "tooltip",
+		},
+		{
+			key: "class",
+			label: "Class",
+			enabled: currentConfig.class,
+			section: "tooltip",
+		},
+		{
+			key: "range",
+			label: "Range",
+			enabled: currentConfig.range,
+			section: "tooltip",
+		},
+		{
+			key: "azimuth",
+			label: "Azimuth",
+			enabled: currentConfig.azimuth,
+			section: "tooltip",
+		},
+		{
+			key: "timestamp",
+			label: "Timestamp",
+			enabled: currentConfig.timestamp,
+			section: "tooltip",
+		},
 		{
 			key: "disable_alerts",
 			label: "Disable Alerts",
 			enabled: disableAlerts,
+			section: "alerts",
 		},
 	];
 }

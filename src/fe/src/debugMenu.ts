@@ -1,5 +1,6 @@
 // Debug menu UI management
 import {
+	type ConfigField,
 	getAvailableFields,
 	setAlertsDisabled,
 	setTooltipField,
@@ -46,25 +47,50 @@ function renderFieldCheckboxes(): void {
 
 	debugFields.innerHTML = "";
 
+	// Group fields by section
+	const sections = new Map<string, ConfigField[]>();
 	for (const field of fields) {
-		const fieldDiv = document.createElement("div");
-		fieldDiv.className = "debug-field";
+		if (!sections.has(field.section)) {
+			sections.set(field.section, []);
+		}
+		sections.get(field.section)?.push(field);
+	}
 
-		const checkbox = document.createElement("input");
-		checkbox.type = "checkbox";
-		checkbox.id = `debug-field-${field.key}`;
-		checkbox.checked = field.enabled;
-		checkbox.addEventListener("change", () => {
-			handleFieldToggle(field.key, checkbox.checked);
-		});
+	// Section title mapping
+	const sectionTitles: Record<string, string> = {
+		tooltip: "Tooltip Settings",
+		alerts: "System Settings",
+	};
 
-		const label = document.createElement("label");
-		label.htmlFor = `debug-field-${field.key}`;
-		label.textContent = field.label;
+	// Render each section
+	for (const [sectionKey, sectionFields] of sections) {
+		// Add section header
+		const sectionTitle = document.createElement("div");
+		sectionTitle.className = "debug-section-title";
+		sectionTitle.textContent = sectionTitles[sectionKey] || sectionKey;
+		debugFields.appendChild(sectionTitle);
 
-		fieldDiv.appendChild(checkbox);
-		fieldDiv.appendChild(label);
-		debugFields.appendChild(fieldDiv);
+		// Add fields in this section
+		for (const field of sectionFields) {
+			const fieldDiv = document.createElement("div");
+			fieldDiv.className = "debug-field";
+
+			const checkbox = document.createElement("input");
+			checkbox.type = "checkbox";
+			checkbox.id = `debug-field-${field.key}`;
+			checkbox.checked = field.enabled;
+			checkbox.addEventListener("change", () => {
+				handleFieldToggle(field.key, checkbox.checked);
+			});
+
+			const label = document.createElement("label");
+			label.htmlFor = `debug-field-${field.key}`;
+			label.textContent = field.label;
+
+			fieldDiv.appendChild(checkbox);
+			fieldDiv.appendChild(label);
+			debugFields.appendChild(fieldDiv);
+		}
 	}
 }
 
@@ -116,7 +142,11 @@ function loadDebugMenuState(): void {
 		if (fieldsStr !== null) {
 			const fields = JSON.parse(fieldsStr);
 			for (const [key, enabled] of Object.entries(fields)) {
-				setTooltipField(key as keyof TooltipFieldConfig, Boolean(enabled));
+				if (key === "disable_alerts") {
+					setAlertsDisabled(Boolean(enabled));
+				} else {
+					setTooltipField(key as keyof TooltipFieldConfig, Boolean(enabled));
+				}
 				const checkbox = document.getElementById(
 					`debug-field-${key}`,
 				) as HTMLInputElement;
