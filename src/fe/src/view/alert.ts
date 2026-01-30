@@ -6,6 +6,11 @@ let alertCloseButton: HTMLElement | null = null;
 const activeAlerts: Set<number> = new Set();
 const alertCards: Map<number, HTMLElement> = new Map();
 
+export interface TrackAlert {
+	cameraId: number;
+	threatAzimuthDeg?: number;
+}
+
 export function initAlertView(): void {
 	alertOverlay = document.getElementById("trackAlertOverlay");
 	alertGrid = document.getElementById("trackAlertGrid");
@@ -31,45 +36,49 @@ export function initAlertView(): void {
 }
 
 // Show alert for new tracks from specific radars
-export function showTrackAlert(radarIds: number[]): void {
+export function showTrackAlert(alerts: TrackAlert[]): void {
 	if (!alertOverlay || !alertGrid) return;
 
-	// Filter out radars that already have alerts
-	const newRadarIds = radarIds.filter((id) => !activeAlerts.has(id));
-	if (newRadarIds.length === 0) return;
+	const newAlerts = alerts.filter((alert) => {
+		return !activeAlerts.has(alert.cameraId);
+	});
+	if (newAlerts.length === 0) return;
 
-	for (const id of newRadarIds) {
-		activeAlerts.add(id);
-		addAlertCard(id);
+	for (const alert of newAlerts) {
+		activeAlerts.add(alert.cameraId);
+		addAlertCard(alert.cameraId, alert.threatAzimuthDeg ?? null);
 	}
 
 	// Show overlay
 	alertOverlay.classList.remove("hidden");
 }
 
-function addAlertCard(radarId: number): void {
+function addAlertCard(cameraId: number, threatAzimuthDeg: number | null): void {
 	if (!alertGrid) return;
-	if (alertCards.has(radarId)) return;
+	if (alertCards.has(cameraId)) return;
 
 	const el = document.createElement("radars-camera-feed");
-	el.setAttribute("camera-id", String(radarId));
+	el.setAttribute("camera-id", String(cameraId));
 	el.setAttribute("variant", "alert");
+	if (threatAzimuthDeg !== null) {
+		el.setAttribute("threat-azimuth", String(threatAzimuthDeg));
+	}
 
 	const badge = document.createElement("span");
 	badge.setAttribute("slot", "header-right");
 	badge.className = "track-alert-camera-radar";
-	badge.textContent = `RADAR ${radarId}`;
+	badge.textContent = `RADAR ${cameraId}`;
 
 	const dismiss = document.createElement("button");
 	dismiss.setAttribute("slot", "overlay-top-right");
 	dismiss.className = "track-alert-dismiss";
-	dismiss.setAttribute("data-radar-id", String(radarId));
+	dismiss.setAttribute("data-radar-id", String(cameraId));
 	dismiss.textContent = "✕";
 
 	el.appendChild(badge);
 	el.appendChild(dismiss);
 
-	alertCards.set(radarId, el);
+	alertCards.set(cameraId, el);
 	alertGrid.appendChild(el);
 }
 

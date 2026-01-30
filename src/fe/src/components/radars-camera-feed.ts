@@ -1,6 +1,11 @@
 import { CAMERAS, type CameraMode, getCameraStreamUrl } from "../config.ts";
 import { createSharedWhepManager } from "../stream/sharedWebrtc.ts";
 import {
+	azimuthDegToCardinal8,
+	normalizeAzimuthDeg,
+} from "../view/threatDirection.ts";
+import { configureCameraFeedVideo } from "./cameraFeedVideo.ts";
+import {
 	ensureCameraMode,
 	setCameraMode,
 	subscribeCameraMode,
@@ -29,6 +34,14 @@ function parseStatus(value: string | null): Status {
 	return value === "online" ? "online" : "offline";
 }
 
+function parseThreatAzimuth(value: string | null): number | null {
+	if (value === null) return null;
+	const trimmed = value.trim();
+	if (trimmed === "") return null;
+	const parsed = Number.parseFloat(trimmed);
+	return Number.isFinite(parsed) ? normalizeAzimuthDeg(parsed) : null;
+}
+
 export class RadarsCameraFeedElement extends HTMLElement {
 	static observedAttributes = [
 		"camera-id",
@@ -36,6 +49,7 @@ export class RadarsCameraFeedElement extends HTMLElement {
 		"variant",
 		"name",
 		"status",
+		"threat-azimuth",
 	];
 
 	#detachStream: (() => void) | null = null;
@@ -48,6 +62,7 @@ export class RadarsCameraFeedElement extends HTMLElement {
 	#statusEl: HTMLElement | null = null;
 	#ipEl: HTMLElement | null = null;
 	#modeToggle: HTMLButtonElement | null = null;
+	#threatLabelEl: HTMLElement | null = null;
 
 	connectedCallback(): void {
 		this.#ensureShadowDom();
@@ -80,6 +95,7 @@ export class RadarsCameraFeedElement extends HTMLElement {
           flex-direction: column;
           width: 100%;
           height: 100%;
+          --threat-rotation: 0deg;
           background: rgba(10, 10, 10, 0.9);
           border: 1px solid rgba(255, 255, 255, 0.3);
           border-radius: 8px;
@@ -92,7 +108,7 @@ export class RadarsCameraFeedElement extends HTMLElement {
           background: rgba(10, 10, 10, 0.95);
           border: 4px solid #ff0000;
           border-radius: 12px;
-          min-height: 300px;
+          min-height: 400px;
         }
 
         .header {
@@ -154,6 +170,23 @@ export class RadarsCameraFeedElement extends HTMLElement {
           background: rgba(102, 102, 102, 0.15);
         }
 
+        .threat-label {
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.5px;
+          color: rgba(255, 255, 255, 0.85);
+          padding: 2px 6px;
+          border-radius: 3px;
+          background: rgba(255, 0, 0, 0.25);
+          border: 1px solid rgba(255, 0, 0, 0.4);
+          user-select: none;
+          white-space: nowrap;
+        }
+
+        .threat-label.hidden {
+          display: none;
+        }
+
         .mode-toggle {
           display: flex;
           padding: 0;
@@ -201,7 +234,7 @@ export class RadarsCameraFeedElement extends HTMLElement {
         }
 
         :host([variant="alert"]) .feed {
-          min-height: 300px;
+          min-height: 340px;
         }
 
         video {
@@ -213,6 +246,7 @@ export class RadarsCameraFeedElement extends HTMLElement {
           left: 0;
           z-index: 1;
           background: #000;
+          pointer-events: none;
         }
 
         .placeholder {
@@ -253,6 +287,59 @@ export class RadarsCameraFeedElement extends HTMLElement {
         .overlay-slot ::slotted(*) {
           pointer-events: auto;
         }
+
+        .threat-mini-map {
+          display: none;
+          position: absolute;
+          left: 14px;
+          bottom: 14px;
+          width: 86px;
+          height: 86px;
+          border-radius: 12px;
+          background: rgba(0, 0, 0, 0.55);
+          border: 1px solid rgba(255, 0, 0, 0.35);
+          backdrop-filter: blur(6px);
+          box-shadow: 0 0 0 1px rgba(255, 0, 0, 0.25) inset;
+          z-index: 11;
+          align-items: center;
+          justify-content: center;
+          pointer-events: none;
+        }
+
+        :host([variant="alert"]) .threat-mini-map {
+          display: flex;
+        }
+
+        .threat-mini-map svg {
+          width: 100%;
+          height: 100%;
+          padding: 8px;
+          box-sizing: border-box;
+        }
+
+        .threat-arrow {
+          transform-origin: 50% 50%;
+          transform: rotate(var(--threat-rotation));
+        }
+
+        .threat-label {
+          position: absolute;
+          right: 6px;
+          bottom: 6px;
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.5px;
+          color: #ff4d4d;
+          background: rgba(0, 0, 0, 0.45);
+          border: 1px solid rgba(255, 0, 0, 0.25);
+          border-radius: 6px;
+          padding: 1px 5px;
+          line-height: 1.4;
+        }
+
+        .hidden {
+          display: none;
+        }
       </style>
 
       <div class="header">
@@ -262,6 +349,7 @@ export class RadarsCameraFeedElement extends HTMLElement {
             <span class="mode-day">DAY</span>
             <span class="mode-night">NIGHT</span>
           </button>
+          <span class="threat-label hidden"></span>
           <slot name="header-right"></slot>
           <span class="status offline">OFFLINE</span>
         </div>
@@ -273,6 +361,19 @@ export class RadarsCameraFeedElement extends HTMLElement {
           <div class="placeholder-icon">📷</div>
           <div>No Signal</div>
           <div class="placeholder-ip"></div>
+        </div>
+        <div class="threat-mini-map" data-role="threat-mini-map" aria-hidden="true">
+          <svg viewBox="0 0 100 100" role="presentation">
+            <circle cx="50" cy="50" r="46" fill="rgba(0,0,0,0)" stroke="rgba(255,255,255,0.2)" stroke-width="2" />
+            <circle cx="50" cy="50" r="30" fill="rgba(0,0,0,0)" stroke="rgba(255,255,255,0.1)" stroke-width="2" />
+            <line x1="50" y1="8" x2="50" y2="92" stroke="rgba(255,255,255,0.08)" stroke-width="2" />
+            <line x1="8" y1="50" x2="92" y2="50" stroke="rgba(255,255,255,0.08)" stroke-width="2" />
+            <g class="threat-arrow">
+              <line x1="50" y1="50" x2="50" y2="12" stroke="#ff4d4d" stroke-width="4" stroke-linecap="round" />
+              <polygon points="50,6 42,18 58,18" fill="#ff4d4d" />
+            </g>
+          </svg>
+          <div class="threat-label"></div>
         </div>
         <div class="overlay-slot">
           <slot name="overlay-top-right"></slot>
@@ -287,6 +388,8 @@ export class RadarsCameraFeedElement extends HTMLElement {
 		this.#statusEl = shadow.querySelector(".status");
 		this.#ipEl = shadow.querySelector(".ip");
 		this.#modeToggle = shadow.querySelector(".mode-toggle");
+		this.#threatLabelEl = shadow.querySelector(".threat-label");
+		if (this.#video) configureCameraFeedVideo(this.#video);
 
 		this.#modeToggle?.addEventListener("click", () => {
 			const cameraId = this.cameraId;
@@ -400,6 +503,24 @@ export class RadarsCameraFeedElement extends HTMLElement {
 			this.#statusEl.classList.toggle("online", status === "online");
 			this.#statusEl.classList.toggle("offline", status !== "online");
 			this.#statusEl.textContent = status === "online" ? "ONLINE" : "OFFLINE";
+		}
+
+		if (this.#threatLabelEl) {
+			const threatAzimuthDeg = parseThreatAzimuth(
+				this.getAttribute("threat-azimuth"),
+			);
+			if (threatAzimuthDeg === null || threatAzimuthDeg === undefined) {
+				this.style.setProperty("--threat-rotation", "0deg");
+				this.#threatLabelEl.classList.add("hidden");
+				this.#threatLabelEl.textContent = "";
+			} else {
+				const cardinal = azimuthDegToCardinal8(threatAzimuthDeg);
+				this.style.setProperty("--threat-rotation", `${threatAzimuthDeg}deg`);
+				this.#threatLabelEl.textContent = `${Math.round(
+					threatAzimuthDeg,
+				)}° ${cardinal}`;
+				this.#threatLabelEl.classList.remove("hidden");
+			}
 		}
 	}
 

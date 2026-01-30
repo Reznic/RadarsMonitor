@@ -3,7 +3,11 @@ import math
 import time
 import json
 import os
+import logging
 from typing import Optional, Dict, Any, Union
+from logging_setup import configure_logging
+
+logger = logging.getLogger(__name__)
 
 
 def load_radar_config(config_file="radar_azimuth_mapping.json"):
@@ -13,7 +17,7 @@ def load_radar_config(config_file="radar_azimuth_mapping.json"):
         with open(config_path, 'r') as f:
             return json.load(f)
     except Exception as e:
-        print(f"Error loading radar config: {e}")
+        logger.exception("Error loading radar config")
         return {}
 
 class DemoRadar:
@@ -64,14 +68,15 @@ def _normalize_mapping_for_manager(
 
 
 if __name__ == "__main__":
+    configure_logging()
     # Load radar configuration
     radar_config = load_radar_config()
 
     if not radar_config:
-        print("No radar configuration found. Exiting.")
+        logger.error("No radar configuration found. Exiting.")
         exit(1)
 
-    print(f"Loaded {len(radar_config)} radars from configuration")
+    logger.info("Loaded %s radars from configuration", len(radar_config))
 
     # Create RadarsManager (includes RadarTracksServer)
     manager = RadarsManager()
@@ -104,7 +109,7 @@ if __name__ == "__main__":
             "class_name": class_names[idx % len(class_names)],  # Rotate through classes
         }
         radars.append(radar_params)
-        print(f"  {radar_id}: orientation={orientation}°, class={radar_params['class_name']}")
+        logger.info("Radar %s: orientation=%s°, class=%s", radar_id, orientation, radar_params["class_name"])
 
     # Seed status entries so the frontend sees all radars
     for radar in radars:
@@ -120,14 +125,14 @@ if __name__ == "__main__":
     for radar in radars:
         radar["range_step"] = (radar["range_start"] - radar["range_end"]) / samples
 
-    print(f"\nStarting simulation with {samples} samples per cycle")
-    print("Press Ctrl+C to stop\n")
+    logger.info("Starting simulation with %s samples per cycle", samples)
+    logger.info("Press Ctrl+C to stop")
 
     try:
         cycle = 0
         while True:
             cycle += 1
-            print(f"Cycle {cycle}:")
+            logger.info("Cycle %s", cycle)
 
             for i in range(samples):
                 for idx, radar in enumerate(radars, start=1):
@@ -149,9 +154,9 @@ if __name__ == "__main__":
                 # Sleep for a short time to simulate real-time updates
                 time.sleep(0.1)  # Update every 100 ms
 
-            print(f"  Cycle {cycle} completed ({samples} samples)")
+            logger.info("Cycle %s completed (%s samples)", cycle, samples)
 
     except KeyboardInterrupt:
-        print("\n\nShutting down demo mode...")
+        logger.info("Shutting down demo mode...")
         manager.stop()
-        print("Demo stopped")
+        logger.info("Demo stopped")

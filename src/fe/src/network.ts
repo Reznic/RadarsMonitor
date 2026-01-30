@@ -32,12 +32,24 @@ const HUD_COLLAPSE_KEY = "hud-menu-collapsed";
 export const radarDots: RadarDot[] = [];
 export let lastDataReceived: number = Date.now();
 export let radarStatuses: RadarsStatusResponse = {}; // Store radar status data
+let backendAvailable = true;
+const lastIsActiveByRadarId = new Map<string, boolean>();
 
 // Track history for trail effect
 export const trackHistory: Map<number, RadarDot[]> = new Map(); // track_id -> array of positions
 
 // Known track IDs to detect new tracks
 const knownTrackIds: Set<number> = new Set();
+
+function setBackendAvailability(isAvailable: boolean): void {
+	if (backendAvailable === isAvailable) return;
+	backendAvailable = isAvailable;
+	if (isAvailable) {
+		console.info(`[Network] Backend reachable: ${API_BASE}`);
+	} else {
+		console.warn(`[Network] Backend unreachable: ${API_BASE}`);
+	}
+}
 
 // Initialize DOM references
 export function initNetworkDOM(): void {
@@ -155,6 +167,7 @@ function renderSensorGrid(radarIds: string[]): void {
 
 	if (!needsUpdate) return;
 
+	console.info("[HUD] Radar list updated:", radarIds);
 	currentSensorOrder = radarIds.slice();
 	sensorElements.clear();
 	azimuthElements.clear();
@@ -368,6 +381,7 @@ async function checkHealth(): Promise<void> {
 		}
 
 		const data: RadarsStatusResponse = await response.json();
+		setBackendAvailability(true);
 
 		// Store radar statuses for visualization
 		radarStatuses = data;
@@ -403,6 +417,16 @@ async function checkHealth(): Promise<void> {
 			const sensorElement = sensorElements.get(radarId);
 			const azimuthElement = azimuthElements.get(radarId);
 			if (sensorElement && radarStatus) {
+				const lastActive = lastIsActiveByRadarId.get(radarId);
+				if (lastActive !== undefined && lastActive !== radarStatus.is_active) {
+					console.info(
+						`[HUD] Radar ${radarId} changed state: ${lastActive ? "ON" : "OFF"} → ${
+							radarStatus.is_active ? "ON" : "OFF"
+						}`,
+					);
+				}
+				lastIsActiveByRadarId.set(radarId, radarStatus.is_active);
+
 				if (radarStatus.is_active) {
 					sensorElement.textContent = `ON`;
 					sensorElement.className = "sensor-status sensor-ok";
@@ -424,6 +448,7 @@ async function checkHealth(): Promise<void> {
 			}
 		}
 	} catch (error) {
+		setBackendAvailability(false);
 		// Server is unreachable - mark as malfunction
 		if (statusElement) {
 			statusElement.textContent = "MALFUNCTION";
@@ -449,6 +474,7 @@ async function pollRadarData(): Promise<void> {
 	try {
 		const response: Response = await fetch(`${API_BASE}/tracks`);
 		const data: TracksResponse = await response.json();
+		setBackendAvailability(true);
 
 		// Update last data received timestamp
 		lastDataReceived = Date.now();
@@ -456,8 +482,11 @@ async function pollRadarData(): Promise<void> {
 		// Clear the current dots array
 		radarDots.length = 0;
 
-		// Track new detections for alerting
-		const newTrackRadarIds: number[] = [];
+		// Track new detections for alerting (cameraId -> alert payload)
+		const newTrackAlerts = new Map<
+			number,
+			{ cameraId: number; threatAzimuthDeg: number }
+		>();
 
 		// Process each radar's track data
 		const currentTrackIds = new Set<number>();
@@ -497,7 +526,10 @@ async function pollRadarData(): Promise<void> {
 				knownTrackIds.add(trackData.track_id);
 				// Only trigger camera alerts when we know which camera to show
 				if (cameraIdForRadar !== undefined) {
-					newTrackRadarIds.push(cameraIdForRadar);
+					newTrackAlerts.set(cameraIdForRadar, {
+						cameraId: cameraIdForRadar,
+						threatAzimuthDeg: trackData.azimuth,
+					});
 				}
 			}
 
@@ -521,8 +553,11 @@ async function pollRadarData(): Promise<void> {
 		}
 
 		// Trigger alert for new tracks
-		if (newTrackRadarIds.length > 0 && !isAlertsDisabled()) {
-			showTrackAlert(newTrackRadarIds);
+		if (newTrackAlerts.size > 0 && !isAlertsDisabled()) {
+			console.info("[Alerts] New tracks detected:", [
+				...newTrackAlerts.values(),
+			]);
+			showTrackAlert([...newTrackAlerts.values()]);
 		}
 
 		// Clean up history and known tracks for tracks that are no longer present
@@ -539,6 +574,7 @@ async function pollRadarData(): Promise<void> {
 			}
 		}
 	} catch (error) {
+		setBackendAvailability(false);
 		console.error("Radar data fetch failed:", error);
 		// Don't update lastDataReceived on error
 	}
