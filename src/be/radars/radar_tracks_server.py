@@ -3,10 +3,10 @@ from flask_cors import CORS
 from typing import Dict, TypedDict, Optional, List, Tuple
 import threading
 import logging
-import logging.handlers
-import os
 import json
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 class TrackData(TypedDict):
     track_id: int
@@ -33,15 +33,12 @@ class RadarTracksServer:
         # Reference to RadarsManager instance
         self.radars_manager = radars_manager
         # GPIO controller for MOSFET control
-        self.gpio_controller: Optional[JetsonGPIOController] = None
+        self.gpio_controller: Optional["JetsonGPIOController"] = None
         try:
             from jetson_gpio_controller import JetsonGPIOController
             self.gpio_controller = JetsonGPIOController()
         except Exception as e:
-            logging.warning(f"Failed to initialize GPIO controller: {e}. Running without GPIO control.")
-        
-        # Setup logging to file with rotation (99MB max size)
-        self._setup_logging()
+            logger.warning("Failed to initialize GPIO controller; running without GPIO control: %s", e)
         
         # Register routes
         self.app.route('/tracks', methods=['GET'])(self.get_tracks)
@@ -84,41 +81,6 @@ class RadarTracksServer:
             with self.radars_manager._radars_lock:
                 radar_ids.update(self.radars_manager.radars.keys())
         return list(radar_ids)
-    
-    def _setup_logging(self):
-        """Setup rotating file logger for radar data"""
-        # Create logs directory if it doesn't exist
-        log_dir = os.path.join(os.path.dirname(__file__), 'logs')
-        os.makedirs(log_dir, exist_ok=True)
-        
-        # Log file path
-        log_file = os.path.join(log_dir, 'radar_data.log')
-        
-        # Create logger
-        self.data_logger = logging.getLogger('radar_data')
-        self.data_logger.setLevel(logging.INFO)
-        
-        # Remove existing handlers to avoid duplicates
-        self.data_logger.handlers.clear()
-        
-        # Create rotating file handler (99MB max, keep 10 backup files)
-        max_bytes = 99 * 1024 * 1024  # 99MB
-        handler = logging.handlers.RotatingFileHandler(
-            log_file,
-            maxBytes=max_bytes,
-            backupCount=10,
-            encoding='utf-8'
-        )
-        
-        # Set format: timestamp, type, data
-        formatter = logging.Formatter(
-            '%(asctime)s - %(levelname)s - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
-        )
-        handler.setFormatter(formatter)
-        
-        self.data_logger.addHandler(handler)
-        self.data_logger.propagate = False  # Don't propagate to root logger
     
     def update_radar_data(
         self,
@@ -178,16 +140,16 @@ class RadarTracksServer:
                 }
                 # Format JSON with indentation for readability
                 formatted_json = json.dumps(log_data, indent=2)
-                self.data_logger.info(f"TRACKS:\n{formatted_json}")
+                logger.info("TRACKS:\n%s", formatted_json)
             except Exception as e:
-                self.data_logger.error(f"Error logging tracks: {e}")
+                logger.exception("Error logging tracks")
             
             # Turn on MOSFET when tracks are detected
             if self.gpio_controller:
                 try:
                     self.gpio_controller.start_warning_alarm()
                 except Exception as e:
-                    self.data_logger.error(f"Failed to turn MOSFET ON: {e}")
+                    logger.exception("Failed to turn MOSFET ON")
         else:
             # Turn off MOSFET when no tracks are detected
             if self.gpio_controller:
@@ -195,7 +157,7 @@ class RadarTracksServer:
                     if self.gpio_controller.is_alarm_active():
                         self.gpio_controller.stop_warning_alarm()
                 except Exception as e:
-                    self.data_logger.error(f"Failed to turn MOSFET OFF: {e}")
+                    logger.exception("Failed to turn MOSFET OFF")
         
         return jsonify(all_tracks)
     
@@ -234,10 +196,10 @@ class RadarTracksServer:
                     return
                 if is_active:
                     radar.configure(self.radars_manager.CONFIG_RETRY_COUNT, delay=0)
-                    print(f"Radar {radar_id} status updated to ON")
+                    logger.info("Radar %s status updated to ON", radar_id)
                 else:
                     radar.send_command(stop_cmd)
-                    print(f"Radar {radar_id} status updated to OFF")
+                    logger.info("Radar %s status updated to OFF", radar_id)
                     
     
     def get_radars_status(self):
@@ -284,9 +246,9 @@ class RadarTracksServer:
             }
             # Format JSON with indentation for readability
             formatted_json = json.dumps(log_data, indent=2)
-            self.data_logger.info(f"STATUS:\n{formatted_json}")
+            logger.info("STATUS:\n%s", formatted_json)
         except Exception as e:
-            self.data_logger.error(f"Error logging status: {e}")
+            logger.exception("Error logging status")
         
         return jsonify(all_status)
     
@@ -367,4 +329,4 @@ class RadarTracksServer:
             try:
                 self.gpio_controller.cleanup()
             except Exception as e:
-                self.data_logger.error(f"Error cleaning up GPIO controller: {e}")
+                logger.exception("Error cleaning up GPIO controller")

@@ -7,6 +7,7 @@ import logging
 from datetime import datetime
 from radar_tracks_server import RadarTracksServer
 from radar import Radar, RadarConfiguration
+from logging_setup import configure_logging
 
 try:
     from flask import Flask, request, jsonify
@@ -34,6 +35,7 @@ class RadarsManager:
     INIT_FREQ = 60  # GHz
     
     def __init__(self):
+        self._logger = logging.getLogger(__name__)
         self.radars: Dict[str, Radar] = {}
         self.next_radar_freq = self.INIT_FREQ
         self.radar_config = RadarConfiguration()
@@ -69,11 +71,11 @@ class RadarsManager:
         
         with self._radars_lock:
             if radar_id in self.radars:
-                print(f"Radar {radar_id} already registered! updating radar")
+                self._logger.info("Radar %s already registered; updating instance", radar_id)
                 # Stop old radar
                 self.radars[radar_id].stop()
             else:
-                print(f"New radar registered: {radar_id} from {host}:{http_port}")
+                self._logger.info("New radar registered: %s from %s:%s", radar_id, host, http_port)
             
             # Create new radar instance
             radar = Radar(
@@ -97,11 +99,11 @@ class RadarsManager:
         if radar:
             try:
                 radar.stop()
-                print(f"Radar {radar_id} unregistered and stopped")
+                self._logger.info("Radar %s unregistered and stopped", radar_id)
             except Exception as e:
-                print(f"Error stopping radar {radar_id}: {e}")
+                self._logger.exception("Error stopping radar %s", radar_id)
             return True
-        print(f"Radar {radar_id} not found to unregister")
+        self._logger.warning("Radar %s not found to unregister", radar_id)
         return False
     
     def _setup_csv_file(self) -> None:
@@ -117,9 +119,9 @@ class RadarsManager:
             self._csv_file = open(csv_path, 'a', newline='', buffering=8192)
             self._csv_writer = csv.writer(self._csv_file)
             self._csv_file_path = csv_path  # Store the path for reference
-            print(f"CSV file opened for writing: {csv_path}")
+            self._logger.info("CSV file opened for writing: %s", csv_path)
         except Exception as e:
-            print(f"Error opening CSV file: {e}")
+            self._logger.exception("Error opening CSV file")
             self._csv_file = None
             self._csv_writer = None
             self._csv_file_path = None
@@ -141,10 +143,10 @@ class RadarsManager:
                 with open(data_dir_path, 'r') as f:
                     loaded_mapping = json.load(f)
                 self.radars_azimuth_mapping = loaded_mapping
-                print(f"Loaded radar mapping from {data_dir_path}")
+                self._logger.info("Loaded radar mapping from %s", data_dir_path)
                 return
         except Exception as e:
-            print(f"Warning: Could not load azimuth mapping from {data_dir_path}: {e}")
+            self._logger.warning("Could not load azimuth mapping from %s: %s", data_dir_path, e)
         
         # Fallback to current directory or provided path
         try:
@@ -152,11 +154,11 @@ class RadarsManager:
                 with open(file_path, 'r') as f:
                     loaded_mapping = json.load(f)
                 self.radars_azimuth_mapping = loaded_mapping
-                print(f"Loaded radar mapping from {file_path}")
+                self._logger.info("Loaded radar mapping from %s", file_path)
             else:
-                print(f"Warning: Azimuth mapping file not found: {file_path}")
+                self._logger.warning("Azimuth mapping file not found: %s", file_path)
         except Exception as e:
-            print(f"Warning: Could not load azimuth mapping from {file_path}: {e}")
+            self._logger.warning("Could not load azimuth mapping from %s: %s", file_path, e)
     
     def _start_boot_server(self, port: int) -> None:
         """Start a Flask server to receive boot messages from radar node servers"""
@@ -181,7 +183,7 @@ class RadarsManager:
                 tcp_port = data.get('tcp_port')
                 
                 if not radar_serial or not http_port or not tcp_port:
-                    print("Error: Missing radar_serial, http_port or tcp_port")
+                    self._logger.warning("Boot message missing required fields: %s", data)
                     return jsonify({"error": "Missing radar_serial, http_port or tcp_port"}), 400
                 
                 self.register_radar(radar_serial, host, http_port, tcp_port)
@@ -192,7 +194,7 @@ class RadarsManager:
                 })
                     
             except Exception as e:
-                print(f"Error handling boot message: {e}")
+                self._logger.exception("Error handling boot message")
                 return jsonify({"error": str(e)}), 500
 
         @app.route('/lost_radar', methods=['POST'])
@@ -209,7 +211,7 @@ class RadarsManager:
                     return jsonify({"status": "unregistered", "radar_id": radar_serial})
                 return jsonify({"error": "Radar not found"}), 404
             except Exception as e:
-                print(f"Error handling lost_radar message: {e}")
+                self._logger.exception("Error handling lost_radar message")
                 return jsonify({"error": str(e)}), 500
         
         @app.after_request
@@ -229,7 +231,7 @@ class RadarsManager:
             name="RadarsManagerBootServer", daemon=True
         )
         self.nodes_boot_server.start()
-        print(f"RadarsManager boot server started on port {port}")
+        self._logger.info("RadarsManager boot server started on port %s", port)
 
     def stop_boot_server(self) -> None:
         self.nodes_boot_server.join()
@@ -271,7 +273,7 @@ class RadarsManager:
     def configure_radar(self, radar_id: str) -> bool:
         """Configure a specific radar"""
         if radar_id not in self.radars:
-            print(f"Radar {radar_id} not found")
+            self._logger.warning("Radar %s not found", radar_id)
             return False
         return self.radars[radar_id].configure(self.radar_config, self.CONFIG_RETRY_COUNT, self.CONFIG_DELAY)
 
@@ -306,9 +308,9 @@ class RadarsManager:
                 with self._csv_file_lock:
                     self._csv_file.flush()
                     self._csv_file.close()
-                    print("CSV file closed")
+                    self._logger.info("CSV file closed")
             except Exception as e:
-                print(f"Error closing CSV file: {e}")
+                self._logger.exception("Error closing CSV file")
             finally:
                 self._csv_file = None
                 self._csv_writer = None
@@ -330,7 +332,7 @@ class RadarsManager:
                             if self._csv_write_count % 50 == 0:
                                 self._csv_file.flush()
                     except Exception as e:
-                        print(f"Error writing to CSV file: {e}")
+                        self._logger.exception("Error writing to CSV file")
 
 
 def convert_tracks_to_csv(
@@ -369,20 +371,21 @@ def convert_tracks_to_csv(
                               class_name]
             ui_tracks.append(track_csv_data)
         except Exception as e:
-            print(f"Error converting track to UI format: {e}")
+            logging.getLogger(__name__).exception("Error converting track to UI format")
             continue
     return ui_tracks
 
 
 def main():
+    configure_logging()
     radars_manager = None
     try:
         radars_manager = RadarsManager()
         radars_manager.join()
     except KeyboardInterrupt:
-        print("Shutting down...")
+        logging.getLogger(__name__).info("Shutting down...")
     except Exception as e:
-        print(f"Error: {e}")
+        logging.getLogger(__name__).exception("Fatal error")
 
     finally:
         if radars_manager:

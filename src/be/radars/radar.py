@@ -1,13 +1,13 @@
-
-
 import os
 import math
 import time
 import numpy as np
-import time
+import logging
 from typing import Dict, Optional, Callable, TypedDict
 from radar_node_client import RadarNodeClient
 from tracker_process import TrackerProcess
+
+logger = logging.getLogger(__name__)
 
 class TrackData(TypedDict):
     track_id: int
@@ -66,28 +66,39 @@ class Radar:
         config = self.config.get_config()
         #wait for 70 seconds
         time.sleep(delay)
-        print(f"sending sensor start for {self.radar_id}")        
+        logger.info("Sending sensor start for %s", self.radar_id)
         for attempt in range(1, retries + 1):
             try:
                 response = self.client.send_command(config)
                 if response == '"sensorStart"'  or "Done" in response:
                     if attempt > 1:
-                        print(f"radar {self.radar_id} configured successfully on attempt {attempt}")
+                        logger.info("Radar %s configured successfully on attempt %s", self.radar_id, attempt)
                     else:
-                        print(f"radar {self.radar_id} configured successfully")
+                        logger.info("Radar %s configured successfully", self.radar_id)
                     return True
                 else:
-                    print(f"error configuring radar {self.radar_id} (attempt {attempt}/{retries}): {response}")
+                    logger.warning(
+                        "Error configuring radar %s (attempt %s/%s): %s",
+                        self.radar_id,
+                        attempt,
+                        retries,
+                        response,
+                    )
                     if attempt < retries:
-                        print(f"retrying configuration for radar {self.radar_id}...")
+                        logger.info("Retrying configuration for radar %s...", self.radar_id)
                         time.sleep(10)
             except Exception as e:
-                print(f"exception configuring radar {self.radar_id} (attempt {attempt}/{retries}): {e}")
+                logger.exception(
+                    "Exception configuring radar %s (attempt %s/%s)",
+                    self.radar_id,
+                    attempt,
+                    retries,
+                )
                 if attempt < retries:
-                    print(f"retrying configuration for radar {self.radar_id}...")
+                    logger.info("Retrying configuration for radar %s...", self.radar_id)
         
         # All retries failed
-        print(f"failed to configure radar {self.radar_id} after {retries} attempts")
+        logger.error("Failed to configure radar %s after %s attempts", self.radar_id, retries)
         return False
     
     def send_command(self, command: str) -> str:

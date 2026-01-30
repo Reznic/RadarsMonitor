@@ -1,5 +1,8 @@
 import struct
 from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 class RadarFrameParser:
     # Magic word for frame detection
@@ -40,7 +43,7 @@ class RadarFrameParser:
                 p_offset = i * 16
                 x, y, z, doppler = struct.unpack('<ffff', tlv1_payload[p_offset:p_offset+16])
             except Exception:
-                print(f'detection lost')
+                logger.debug("Detection lost while unpacking radar %s frame %s point %s", self.radar_id, frame_num, i)
                 continue
             
             s_offset = i * 4
@@ -118,4 +121,3 @@ class RadarFrameParser:
         self.data_buffer = self.data_buffer[offset:]
         
         return detections, header['frame_number']
-
