@@ -51,7 +51,9 @@ export const CAMERAS: CameraConfig[] = [
 ];
 
 // Helper to get camera ID by radar serial
-export function getCameraIdByRadarSerial(radarSerial: string): number | undefined {
+export function getCameraIdByRadarSerial(
+	radarSerial: string,
+): number | undefined {
 	const camera = CAMERAS.find((c) => c.radarSerial === radarSerial);
 	return camera?.id;
 }

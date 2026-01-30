@@ -197,9 +197,9 @@ function renderAlertGrid(): void {
 	// Connect streams for all alert videos (reuse if available from main view)
 	const videos = alertGrid.querySelectorAll<HTMLVideoElement>(".camera-video");
 	videos.forEach((video) => {
-		const radarIdAttr = video.closest(".track-alert-camera")?.getAttribute(
-			"data-radar-id",
-		);
+		const radarIdAttr = video
+			.closest(".track-alert-camera")
+			?.getAttribute("data-radar-id");
 		if (!radarIdAttr) return;
 
 		const radarId = Number.parseInt(radarIdAttr, 10);
@@ -237,7 +237,9 @@ function dismissAlert(radarId: number): void {
 		const cameraCell = alertGrid?.querySelector(
 			`.track-alert-camera[data-radar-id="${radarId}"]`,
 		);
-		const video = cameraCell?.querySelector(".camera-video") as HTMLVideoElement;
+		const video = cameraCell?.querySelector(
+			".camera-video",
+		) as HTMLVideoElement;
 		if (video) {
 			video.srcObject = null;
 		}

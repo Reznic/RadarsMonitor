@@ -759,60 +759,60 @@ body {
 
 /* Fullscreen Button */
 .fullscreen-btn {
-  position: absolute;
-  top: 20px;
-  left: 50%;
-  transform: translateX(calc(-50% + 120px));
-  width: 40px;
-  height: 40px;
-  background: rgba(0, 0, 0, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 8px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
+	position: absolute;
+	top: 20px;
+	left: 50%;
+	transform: translateX(calc(-50% + 120px));
+	width: 40px;
+	height: 40px;
+	background: rgba(0, 0, 0, 0.9);
+	border: 1px solid rgba(255, 255, 255, 0.3);
+	border-radius: 8px;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 100;
 }
 
 .fullscreen-btn:hover {
-  background: rgba(0, 0, 0, 1);
-  border-color: rgba(255, 255, 255, 0.5);
+	background: rgba(0, 0, 0, 1);
+	border-color: rgba(255, 255, 255, 0.5);
 }
 
 .fullscreen-icon {
-  font-size: 20px;
-  color: rgba(255, 255, 255, 0.9);
-  user-select: none;
+	font-size: 20px;
+	color: rgba(255, 255, 255, 0.9);
+	user-select: none;
 }
 
 /* Hide button if fullscreen API not supported */
 .fullscreen-btn.unsupported {
-  display: none;
+	display: none;
 }
 
 /* Responsive adjustments */
 @media (max-width: 1200px) {
-  .fullscreen-btn {
-    width: 36px;
-    height: 36px;
-  }
+	.fullscreen-btn {
+		width: 36px;
+		height: 36px;
+	}
 
-  .fullscreen-icon {
-    font-size: 18px;
-  }
+	.fullscreen-icon {
+		font-size: 18px;
+	}
 }
 
 @media (max-width: 700px) {
-  .fullscreen-btn {
-    top: 10px;
-    width: 32px;
-    height: 32px;
-  }
+	.fullscreen-btn {
+		top: 10px;
+		width: 32px;
+		height: 32px;
+	}
 
-  .fullscreen-icon {
-    font-size: 16px;
-  }
+	.fullscreen-icon {
+		font-size: 16px;
+	}
 }
 
 /* Radar Container */
