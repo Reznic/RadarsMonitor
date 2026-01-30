@@ -259,14 +259,6 @@ class RadarTracksServer:
                         
                         # Debug print
                         #print(f"Radar {radar_id} status: {radar_status}")
-            missing_count = 8 - len(self.radars_manager.radars)
-            for i in range(missing_count):
-                all_status[f"Missing_{i+1}"] = {
-                    "is_active": False,
-                    "orientation_angle": 0.0,
-                    "x": 0.0,
-                    "y": 0.0
-                }
                 
         # Log status to file (always log, even if empty)
         try:
