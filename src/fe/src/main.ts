@@ -39,6 +39,7 @@ function init(): void {
 	initCameraView(); // Initialize camera view
 	initAlertView(); // Initialize alert overlay
 	initTabBar(); // Initialize tab bar controls
+	initFullscreenButton();
 	startHealthCheck();
 	startRadarPolling();
 }
@@ -77,6 +78,46 @@ function initTabBar(): void {
 				debugMenu?.classList.add("hidden");
 			}
 		});
+	});
+}
+
+// Initialize fullscreen button
+function initFullscreenButton(): void {
+	const fullscreenBtn = document.getElementById("fullscreenBtn");
+	const fullscreenIcon = fullscreenBtn?.querySelector(".fullscreen-icon");
+
+	if (!fullscreenBtn || !fullscreenIcon) return;
+
+	// Check if Fullscreen API is supported
+	if (!document.fullscreenEnabled) {
+		fullscreenBtn.classList.add("unsupported");
+		return;
+	}
+
+	// Toggle fullscreen on button click
+	fullscreenBtn.addEventListener("click", async () => {
+		try {
+			if (!document.fullscreenElement) {
+				// Enter fullscreen
+				await document.documentElement.requestFullscreen();
+			} else {
+				// Exit fullscreen
+				await document.exitFullscreen();
+			}
+		} catch (err) {
+			console.warn("Fullscreen request failed:", err);
+		}
+	});
+
+	// Update icon when fullscreen state changes
+	document.addEventListener("fullscreenchange", () => {
+		if (document.fullscreenElement) {
+			// In fullscreen - show exit icon
+			fullscreenIcon.textContent = "✕";
+		} else {
+			// Not in fullscreen - show expand icon
+			fullscreenIcon.textContent = "⛶";
+		}
 	});
 }
 
