@@ -16,6 +16,7 @@ import {
 	drawRadarBase,
 	drawRadarDots,
 	drawRadarTrails,
+	drawRadarUnitIndices,
 	drawSweepLine,
 	drawVehicleOverlay,
 	initCanvas,
@@ -97,6 +98,7 @@ function render(timestamp: number): void {
 		drawRadarTrails(trackHistory); // Draw fading trails before current dots
 		drawRadarDots(radarDots);
 		drawVehicleOverlay(); // Ensure vehicle and markers render above dots/trails
+		drawRadarUnitIndices(radarStatuses);
 	}
 	requestAnimationFrame(render);
 }
