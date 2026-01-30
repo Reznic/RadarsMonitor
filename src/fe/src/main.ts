@@ -1,4 +1,5 @@
 import { HEALTH_CHECK_INTERVAL } from "./config.ts";
+import "./components/radars-camera-feed.ts";
 import { initDebugMenu } from "./debugMenu.ts";
 import {
 	checkServerAvailability,

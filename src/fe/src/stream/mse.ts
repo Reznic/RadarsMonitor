@@ -57,7 +57,10 @@ export async function connectMSE(
 							}
 						}
 						if (queue.length > 0 && sourceBuffer && !sourceBuffer.updating) {
-							sourceBuffer.appendBuffer(queue.shift()!);
+							const next = queue.shift();
+							if (next) {
+								sourceBuffer.appendBuffer(next);
+							}
 						}
 					});
 

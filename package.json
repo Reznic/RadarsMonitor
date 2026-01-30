@@ -4,7 +4,8 @@
 	"description": "A simple radar visualization with Python backend",
 	"type": "module",
 	"scripts": {
-		"be": "./venv/bin/python src/radars_manager.py",
+		"be": "./venv/bin/python src/be/radars/radars_manager.py",
+		"be:demo": "./venv/bin/python src/be/radars/demo.py",
 		"fe": "bun src/fe/serve.ts",
 		"prod": "bun src/fe/serve.ts --prod",
 		"start": "bun src/fe/serve.ts",

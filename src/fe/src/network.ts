@@ -120,7 +120,11 @@ function initRadarControls(): void {
 		target.disabled = true;
 
 		try {
-			if (action === "on") {
+			if (action === "all-on") {
+				await turnAllRadarsOn();
+			} else if (action === "all-off") {
+				await turnAllRadarsOff();
+			} else if (action === "on") {
 				await turnRadarOn(radarId);
 			} else if (action === "off") {
 				await turnRadarOff(radarId);
@@ -165,6 +169,40 @@ function renderSensorGrid(radarIds: string[]): void {
 	}
 
 	const fragment = document.createDocumentFragment();
+
+	{
+		const sensorItem = document.createElement("div");
+		sensorItem.className = "sensor-item";
+		sensorItem.dataset.radarId = "all";
+
+		const sensorHeader = document.createElement("div");
+		sensorHeader.className = "sensor-header";
+
+		const label = document.createElement("div");
+		label.className = "sensor-label";
+		label.textContent = "ALL";
+
+		const statusDiv = document.createElement("div");
+		statusDiv.className = "sensor-status";
+		statusDiv.textContent = "—";
+
+		sensorHeader.appendChild(label);
+		sensorHeader.appendChild(statusDiv);
+
+		const azimuthDiv = document.createElement("div");
+		azimuthDiv.className = "sensor-azimuth";
+		azimuthDiv.textContent = "Bulk control";
+
+		const controls = document.createElement("div");
+		controls.className = "sensor-controls";
+		controls.appendChild(createAllControlButton("on"));
+		controls.appendChild(createAllControlButton("off"));
+
+		sensorItem.appendChild(sensorHeader);
+		sensorItem.appendChild(azimuthDiv);
+		sensorItem.appendChild(controls);
+		fragment.appendChild(sensorItem);
+	}
 
 	radarIds.forEach((radarId) => {
 		const sensorItem = document.createElement("div");
@@ -219,6 +257,17 @@ function createControlButton(
 	return button;
 }
 
+function createAllControlButton(action: "on" | "off"): HTMLButtonElement {
+	const button = document.createElement("button");
+	const actionClass = action === "on" ? "sensor-btn-on" : "sensor-btn-off";
+	button.type = "button";
+	button.className = `sensor-btn ${actionClass}`;
+	button.dataset.radarId = "all";
+	button.dataset.action = `all-${action}`;
+	button.textContent = action.toUpperCase();
+	return button;
+}
+
 // Turn radar on
 async function turnRadarOn(radarId: string): Promise<void> {
 	try {
@@ -238,6 +287,42 @@ async function turnRadarOn(radarId: string): Promise<void> {
 		console.log(`Radar ${radarId} turned on:`, data);
 	} catch (error) {
 		console.error(`Error turning radar ${radarId} on:`, error);
+		throw error;
+	}
+}
+
+async function turnAllRadarsOn(): Promise<void> {
+	try {
+		const response = await fetch(`${API_BASE}/radar/all/on`, {
+			method: "POST",
+		});
+
+		if (!response.ok) {
+			throw new Error(`HTTP error! status: ${response.status}`);
+		}
+
+		const data = await response.json();
+		console.log("All radars turned on:", data);
+	} catch (error) {
+		console.error("Error turning all radars on:", error);
+		throw error;
+	}
+}
+
+async function turnAllRadarsOff(): Promise<void> {
+	try {
+		const response = await fetch(`${API_BASE}/radar/all/off`, {
+			method: "POST",
+		});
+
+		if (!response.ok) {
+			throw new Error(`HTTP error! status: ${response.status}`);
+		}
+
+		const data = await response.json();
+		console.log("All radars turned off:", data);
+	} catch (error) {
+		console.error("Error turning all radars off:", error);
 		throw error;
 	}
 }

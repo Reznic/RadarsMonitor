@@ -214,8 +214,8 @@ body {
 }
 
 /* Hidden utility class */
-/* biome-ignore lint/complexity/noImportantStyles: utility class meant to override other display rules */
 .hidden {
+	/* biome-ignore lint: utility class uses !important intentionally */
 	display: none !important;
 }
 

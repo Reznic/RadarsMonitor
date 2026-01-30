@@ -25,7 +25,7 @@ export async function connectWebRTC(
 	pc.ontrack = (event) => {
 		console.log(`[WebRTC ${cameraId}] Track received:`, event.track.kind);
 		// Use the stream from the event directly (RTSPtoWEB sends a single stream)
-		if (event.streams && event.streams[0]) {
+		if (event.streams?.[0]) {
 			video.srcObject = event.streams[0];
 			video.play().catch(() => {
 				// Autoplay might be blocked

@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from typing import Dict, TypedDict, Optional
+from typing import Dict, TypedDict, Optional, List, Tuple
 import threading
 import logging
 import logging.handlers
@@ -48,6 +48,8 @@ class RadarTracksServer:
         self.app.route('/radars_status', methods=['GET'])(self.get_radars_status)
         self.app.route('/radar/on', methods=['POST'])(self.turn_radar_on)
         self.app.route('/radar/off', methods=['POST'])(self.turn_radar_off)
+        self.app.route('/radar/all/on', methods=['POST'])(self.turn_all_radars_on)
+        self.app.route('/radar/all/off', methods=['POST'])(self.turn_all_radars_off)
         
         # Create a thread for the server
         self.server_thread = threading.Thread(target=self.run_server, daemon=True)
@@ -69,6 +71,19 @@ class RadarTracksServer:
                 return radar.azimuth
 
         return 0.0
+
+    def _get_existing_xy(self, radar_id: str) -> Tuple[float, float]:
+        status = self.radar_status.get(radar_id)
+        if status:
+            return float(status.get("x", 0.0)), float(status.get("y", 0.0))
+        return 0.0, 0.0
+
+    def _get_all_radar_ids(self) -> List[str]:
+        radar_ids = set(self.radar_status.keys())
+        if self.radars_manager:
+            with self.radars_manager._radars_lock:
+                radar_ids.update(self.radars_manager.radars.keys())
+        return list(radar_ids)
     
     def _setup_logging(self):
         """Setup rotating file logger for radar data"""
@@ -314,6 +329,36 @@ class RadarTracksServer:
 
         self.update_radar_status(radar_id, False, orientation_angle)
         return jsonify({"message": f"Radar {radar_id} turned off (cached)"})
+
+    def turn_all_radars_on(self):
+        """Route handler for /radar/all/on POST endpoint"""
+        radar_ids = self._get_all_radar_ids()
+        if not radar_ids:
+            return jsonify({"message": "No radars available", "updated": []})
+
+        updated: List[str] = []
+        for radar_id in radar_ids:
+            orientation_angle = self._get_existing_orientation(radar_id)
+            x, y = self._get_existing_xy(radar_id)
+            self.update_radar_status(radar_id, True, orientation_angle, x=x, y=y)
+            updated.append(radar_id)
+
+        return jsonify({"message": "All radars turned on", "updated": updated})
+
+    def turn_all_radars_off(self):
+        """Route handler for /radar/all/off POST endpoint"""
+        radar_ids = self._get_all_radar_ids()
+        if not radar_ids:
+            return jsonify({"message": "No radars available", "updated": []})
+
+        updated: List[str] = []
+        for radar_id in radar_ids:
+            orientation_angle = self._get_existing_orientation(radar_id)
+            x, y = self._get_existing_xy(radar_id)
+            self.update_radar_status(radar_id, False, orientation_angle, x=x, y=y)
+            updated.append(radar_id)
+
+        return jsonify({"message": "All radars turned off", "updated": updated})
     
     def stop_server(self):
         """Stop the server (for cleanup)"""
