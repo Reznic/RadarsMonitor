@@ -3,6 +3,7 @@ import math
 import time
 import json
 import os
+from typing import Optional, Dict, Any, Union
 
 
 def load_radar_config(config_file="radar_azimuth_mapping.json"):
@@ -14,6 +15,52 @@ def load_radar_config(config_file="radar_azimuth_mapping.json"):
     except Exception as e:
         print(f"Error loading radar config: {e}")
         return {}
+
+class DemoRadar:
+    """Lightweight radar stub for demo mode.
+
+    The real manager expects entries in `manager.radars` so the REST endpoints
+    can validate radar IDs. In demo mode we don't talk to hardware, so this
+    class implements the minimum surface area used by RadarTracksServer.
+    """
+
+    def __init__(self, radar_id: str, azimuth: Optional[float] = None):
+        self.radar_id = radar_id
+        self.azimuth = azimuth
+
+    def configure(self, *args, **kwargs) -> bool:
+        return True
+
+    def send_command(self, *args, **kwargs) -> str:
+        return "ok"
+
+    def get_data_reception_health(self) -> bool:
+        return True
+
+    def get_tracks(self):
+        return {}
+
+    def stop(self) -> None:
+        return None
+
+
+def _normalize_mapping_for_manager(
+    radar_config: Dict[str, Any],
+) -> Dict[str, Union[Dict[str, Any], float]]:
+    """Normalize config into RadarsManager.radars_azimuth_mapping format.
+
+    Supports both:
+    - {"RADAR_ID": 123.4}
+    - {"RADAR_ID": {"azimuth": 123.4, "x": ..., "y": ..., ...}}
+    """
+    normalized = {}
+    for radar_id, config in radar_config.items():
+        if isinstance(config, dict):
+            azimuth = float(config.get("azimuth", 0.0))
+            normalized[radar_id] = {**config, "azimuth": azimuth}
+        else:
+            normalized[radar_id] = float(config)
+    return normalized
 
 
 if __name__ == "__main__":
@@ -28,6 +75,12 @@ if __name__ == "__main__":
 
     # Create RadarsManager (includes RadarTracksServer)
     manager = RadarsManager()
+    # Ensure the manager has the demo radars + mapping so /radar/on|off validation works.
+    manager.radars_azimuth_mapping = _normalize_mapping_for_manager(radar_config)
+    with manager._radars_lock:
+        for radar_id, mapping in manager.radars_azimuth_mapping.items():
+            azimuth = mapping.get("azimuth") if isinstance(mapping, dict) else mapping
+            manager.radars[radar_id] = DemoRadar(radar_id=radar_id, azimuth=azimuth)
     server = manager.radar_tracks_server
 
     # Define simulation parameters for each radar
