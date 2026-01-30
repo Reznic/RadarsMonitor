@@ -762,9 +762,8 @@ body {
 	position: absolute;
 	top: 20px;
 	left: 50%;
-	transform: translateX(calc(-50% + 120px));
-	width: 40px;
-	height: 40px;
+	transform: translateX(calc(-50% + 135px));
+	padding: 10px;
 	background: rgba(0, 0, 0, 0.9);
 	border: 1px solid rgba(255, 255, 255, 0.3);
 	border-radius: 8px;
@@ -794,8 +793,7 @@ body {
 /* Responsive adjustments */
 @media (max-width: 1200px) {
 	.fullscreen-btn {
-		width: 36px;
-		height: 36px;
+		padding: 8px;
 	}
 
 	.fullscreen-icon {
@@ -806,8 +804,7 @@ body {
 @media (max-width: 700px) {
 	.fullscreen-btn {
 		top: 10px;
-		width: 32px;
-		height: 32px;
+		padding: 6px;
 	}
 
 	.fullscreen-icon {
