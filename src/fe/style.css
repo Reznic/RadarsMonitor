@@ -214,6 +214,7 @@ body {
 }
 
 /* Hidden utility class */
+/* biome-ignore lint/complexity/noImportantStyles: utility class meant to override other display rules */
 .hidden {
 	display: none !important;
 }
@@ -761,10 +762,10 @@ body {
 .fullscreen-btn {
 	position: absolute;
 	top: 20px;
-	left: 50%;
+	left: 51%;
 	transform: translateX(calc(-50% + 135px));
-	width: 42px;
-	height: 42px;
+	width: 47px;
+	height: 47px;
 	padding: 0;
 	background: rgba(0, 0, 0, 0.9);
 	border: 1px solid rgba(255, 255, 255, 0.3);
