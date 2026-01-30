@@ -5,12 +5,13 @@ import type {
 } from "../../types.ts";
 import {
 	API_BASE,
+	getCameraIdByRadarSerial,
 	HEALTH_CHECK_INTERVAL,
 	MAX_DOTS,
 	RADAR_CHECK_INTERVAL,
 	SERVER_TIMEOUT,
-	getCameraIdByRadarSerial,
 } from "./config.ts";
+import { isAlertsDisabled } from "./debugConfig.ts";
 import { showTrackAlert } from "./view/alert.ts";
 import { cartesianToCanvas } from "./view/radar.ts";
 
@@ -435,7 +436,7 @@ async function pollRadarData(): Promise<void> {
 		}
 
 		// Trigger alert for new tracks
-		if (newTrackRadarIds.length > 0) {
+		if (newTrackRadarIds.length > 0 && !isAlertsDisabled()) {
 			showTrackAlert(newTrackRadarIds);
 		}
 

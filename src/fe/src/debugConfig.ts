@@ -1,8 +1,9 @@
 // Debug configuration for tooltip display
-export interface TooltipField {
-	key: keyof TooltipFieldConfig;
+export interface ConfigField {
+	key: string;
 	label: string;
 	enabled: boolean;
+	section: string;
 }
 
 export interface TooltipFieldConfig {
@@ -27,6 +28,9 @@ const defaultConfig: TooltipFieldConfig = {
 // Current configuration state
 let currentConfig: TooltipFieldConfig = { ...defaultConfig };
 
+// Alerts configuration state
+let disableAlerts = false;
+
 // Get current configuration
 export function getTooltipConfig(): TooltipFieldConfig {
 	return { ...currentConfig };
@@ -45,8 +49,18 @@ export function resetTooltipConfig(): void {
 	currentConfig = { ...defaultConfig };
 }
 
+// Get alerts disabled state
+export function isAlertsDisabled(): boolean {
+	return disableAlerts;
+}
+
+// Set alerts disabled state
+export function setAlertsDisabled(disabled: boolean): void {
+	disableAlerts = disabled;
+}
+
 // Get all available fields with metadata
-export function getAvailableFields(): TooltipField[] {
+export function getAvailableFields(): ConfigField[] {
 	return [
 		{
 			key: "show_tooltips",
@@ -58,5 +72,10 @@ export function getAvailableFields(): TooltipField[] {
 		{ key: "range", label: "Range", enabled: currentConfig.range },
 		{ key: "azimuth", label: "Azimuth", enabled: currentConfig.azimuth },
 		{ key: "timestamp", label: "Timestamp", enabled: currentConfig.timestamp },
+		{
+			key: "disable_alerts",
+			label: "Disable Alerts",
+			enabled: disableAlerts,
+		},
 	];
 }

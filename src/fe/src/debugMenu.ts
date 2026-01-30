@@ -1,6 +1,7 @@
 // Debug menu UI management
 import {
 	getAvailableFields,
+	setAlertsDisabled,
 	setTooltipField,
 	type TooltipFieldConfig,
 } from "./debugConfig.ts";
@@ -69,7 +70,11 @@ function renderFieldCheckboxes(): void {
 
 // Handle field checkbox toggle
 function handleFieldToggle(fieldKey: string, enabled: boolean): void {
-	setTooltipField(fieldKey as keyof TooltipFieldConfig, enabled);
+	if (fieldKey === "disable_alerts") {
+		setAlertsDisabled(enabled);
+	} else {
+		setTooltipField(fieldKey as keyof TooltipFieldConfig, enabled);
+	}
 	saveFieldState(fieldKey, enabled);
 }
 
