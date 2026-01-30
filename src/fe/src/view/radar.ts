@@ -3,7 +3,7 @@ import type {
 	RadarDot,
 	RadarsStatusResponse,
 } from "../../../types.ts";
-import { MAX_DOTS } from "../config.ts";
+import { getCameraIdByRadarSerial, MAX_DOTS } from "../config.ts";
 import { getTooltipConfig } from "../debugConfig.ts";
 
 // Canvas and context (to be initialized)
@@ -39,7 +39,10 @@ export function initCanvas(): void {
 	// Calculate size based on viewport - use the smaller dimension to keep it circular
 	// Cap maximum size to keep canvas resolution reasonable on large/high-DPI displays
 	const maxSize = 900; // pixels
-	const size = Math.min(Math.min(window.innerWidth, window.innerHeight) * 0.95, maxSize);
+	const size = Math.min(
+		Math.min(window.innerWidth, window.innerHeight) * 0.95,
+		maxSize,
+	);
 	canvas.width = size;
 	canvas.height = size;
 
@@ -236,6 +239,14 @@ export function cartesianToCanvas(x: number, y: number): CanvasCoordinates {
 function radarAngleToCanvas(angleDegrees: number): number {
 	const normalized = (((angleDegrees - 90) % 360) + 360) % 360;
 	return (normalized * Math.PI) / 180;
+}
+
+function sortRadarSerials(radarSerials: string[]): string[] {
+	return radarSerials
+		.slice()
+		.sort((a, b) =>
+			a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }),
+		);
 }
 
 // Generate color based on ID number (warm colors: red, orange, yellow)
@@ -571,6 +582,69 @@ export function drawInactiveRadarAreas(
 			ctx.restore();
 		}
 	}
+}
+
+export function drawRadarUnitIndices(
+	radarStatuses: RadarsStatusResponse,
+): void {
+	const radarSerials = sortRadarSerials(Object.keys(radarStatuses));
+	if (radarSerials.length === 0) return;
+
+	// Prefer numbering based on known camera<->radar mapping; fill gaps with unused integers.
+	const usedNumbers = new Set<number>();
+	const derivedNumbers = new Map<string, number>();
+	for (const radarSerial of radarSerials) {
+		const mapped = getCameraIdByRadarSerial(radarSerial);
+		if (mapped !== undefined) {
+			derivedNumbers.set(radarSerial, mapped);
+			usedNumbers.add(mapped);
+		}
+	}
+
+	let nextUnused = 1;
+	const takeNextUnused = (): number => {
+		while (usedNumbers.has(nextUnused)) nextUnused++;
+		const chosen = nextUnused;
+		usedNumbers.add(chosen);
+		nextUnused++;
+		return chosen;
+	};
+
+	const labelRadius = maxRadius - 10;
+	const fontSize = 16;
+
+	ctx.save();
+	ctx.textAlign = "center";
+	ctx.textBaseline = "middle";
+	ctx.font = `bold ${fontSize}px monospace`;
+	ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+
+	for (const radarSerial of radarSerials) {
+		const status = radarStatuses[radarSerial];
+		if (!status) continue;
+
+		const number =
+			derivedNumbers.get(radarSerial) ??
+			((): number => {
+				const assigned = takeNextUnused();
+				derivedNumbers.set(radarSerial, assigned);
+				return assigned;
+			})();
+
+		const angleRad = radarAngleToCanvas(status.orientation_angle);
+		const x = centerX + Math.cos(angleRad) * labelRadius;
+		const y = centerY + Math.sin(angleRad) * labelRadius;
+
+		const label = String(number);
+		ctx.save();
+		if (!status.is_active) {
+			ctx.globalAlpha = 0.6;
+		}
+		ctx.fillText(label, x, y + 0.5);
+		ctx.restore();
+	}
+
+	ctx.restore();
 }
 
 // Draw pulsating center dot with expanding rings
