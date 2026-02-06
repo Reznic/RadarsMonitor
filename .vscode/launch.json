@@ -1,0 +1,34 @@
+{
+  // Run/debug configurations for the frontend and backend.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Frontend: bun src/fe/serve.ts",
+      "type": "bun",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/fe/serve.ts",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PATH": "${env:HOME}/.bun/bin:/opt/homebrew/bin:${env:PATH}"
+      },
+      "watchMode": "hot"
+    },
+    {
+      "name": "Backend: python src/be/radars/demo.py",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/be/radars/demo.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Run Frontend + Backend",
+      "configurations": [
+        "Frontend: bun src/fe/serve.ts",
+        "Backend: python src/be/radars/demo.py"
+      ]
+    }
+  ]
+}
