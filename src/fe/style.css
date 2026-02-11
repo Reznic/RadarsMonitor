@@ -782,10 +782,10 @@ body {
 	border-color: rgba(255, 255, 255, 0.5);
 }
 
-.fullscreen-icon {
-	font-size: 20px;
+.fullscreen-btn svg {
+	width: 20px;
+	height: 20px;
 	color: rgba(255, 255, 255, 0.9);
-	user-select: none;
 }
 
 /* Hide button if fullscreen API not supported */
@@ -800,8 +800,9 @@ body {
 		height: 38px;
 	}
 
-	.fullscreen-icon {
-		font-size: 18px;
+	.fullscreen-btn svg {
+		width: 18px;
+		height: 18px;
 	}
 }
 
@@ -812,8 +813,9 @@ body {
 		height: 34px;
 	}
 
-	.fullscreen-icon {
-		font-size: 16px;
+	.fullscreen-btn svg {
+		width: 16px;
+		height: 16px;
 	}
 }
 

@@ -14,7 +14,6 @@ import {
 const whepManager = createSharedWhepManager();
 
 type Variant = "gallery" | "alert";
-type Status = "online" | "offline";
 
 function parseCameraId(value: string | null): number | null {
 	if (!value) return null;
@@ -28,10 +27,6 @@ function parseMode(value: string | null): CameraMode {
 
 function parseVariant(value: string | null): Variant {
 	return value === "alert" ? "alert" : "gallery";
-}
-
-function parseStatus(value: string | null): Status {
-	return value === "online" ? "online" : "offline";
 }
 
 function parseThreatAzimuth(value: string | null): number | null {
@@ -48,7 +43,6 @@ export class RadarsCameraFeedElement extends HTMLElement {
 		"mode",
 		"variant",
 		"name",
-		"status",
 		"threat-azimuth",
 	];
 
@@ -59,10 +53,12 @@ export class RadarsCameraFeedElement extends HTMLElement {
 	#suppressModeStoreUpdate = false;
 	#video: HTMLVideoElement | null = null;
 	#nameEl: HTMLElement | null = null;
-	#statusEl: HTMLElement | null = null;
 	#ipEl: HTMLElement | null = null;
 	#modeToggle: HTMLButtonElement | null = null;
 	#threatLabelEl: HTMLElement | null = null;
+	#fullscreenBtn: HTMLButtonElement | null = null;
+	#iconExpand: SVGElement | null = null;
+	#iconExit: SVGElement | null = null;
 
 	connectedCallback(): void {
 		this.#ensureShadowDom();
@@ -72,6 +68,7 @@ export class RadarsCameraFeedElement extends HTMLElement {
 	}
 
 	disconnectedCallback(): void {
+		document.removeEventListener("fullscreenchange", this.#onFullscreenChange);
 		this.#detach();
 		this.#unsubscribeFromModeStore();
 	}
@@ -150,24 +147,6 @@ export class RadarsCameraFeedElement extends HTMLElement {
           justify-content: flex-end;
           gap: 10px;
           min-width: 0;
-        }
-
-        .status {
-          font-size: 10px;
-          font-weight: bold;
-          padding: 2px 6px;
-          border-radius: 3px;
-          user-select: none;
-        }
-
-        .status.online {
-          color: #ffffff;
-          background: rgba(255, 255, 255, 0.15);
-        }
-
-        .status.offline {
-          color: #666666;
-          background: rgba(102, 102, 102, 0.15);
         }
 
         .threat-label {
@@ -250,7 +229,7 @@ export class RadarsCameraFeedElement extends HTMLElement {
         }
 
         .placeholder {
-          color: rgba(255, 255, 255, 0.3);
+          color: rgba(255, 255, 255, 0.9);
           font-size: 12px;
           letter-spacing: 1px;
           text-align: center;
@@ -261,7 +240,7 @@ export class RadarsCameraFeedElement extends HTMLElement {
         .placeholder-icon {
           font-size: 48px;
           margin-bottom: 8px;
-          opacity: 0.3;
+          opacity: 0.7;
         }
 
         .ip {
@@ -340,6 +319,35 @@ export class RadarsCameraFeedElement extends HTMLElement {
         .hidden {
           display: none;
         }
+
+        .fullscreen-btn {
+          position: absolute;
+          right: 8px;
+          bottom: 8px;
+          width: 28px;
+          height: 28px;
+          padding: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(0, 0, 0, 0.5);
+          border: 1px solid rgba(255, 255, 255, 0.25);
+          border-radius: 6px;
+          cursor: pointer;
+          z-index: 12;
+          color: rgba(255, 255, 255, 0.85);
+          transition: background 0.15s, border-color 0.15s;
+        }
+
+        .fullscreen-btn:hover {
+          background: rgba(0, 0, 0, 0.7);
+          border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .fullscreen-btn svg {
+          width: 14px;
+          height: 14px;
+        }
       </style>
 
       <div class="header">
@@ -351,7 +359,6 @@ export class RadarsCameraFeedElement extends HTMLElement {
           </button>
           <span class="threat-label hidden"></span>
           <slot name="header-right"></slot>
-          <span class="status offline">OFFLINE</span>
         </div>
       </div>
 
@@ -378,6 +385,14 @@ export class RadarsCameraFeedElement extends HTMLElement {
         <div class="overlay-slot">
           <slot name="overlay-top-right"></slot>
         </div>
+        <button class="fullscreen-btn" type="button" title="Full screen" aria-label="Toggle full screen">
+          <svg class="icon-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+          </svg>
+          <svg class="icon-exit hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
+          </svg>
+        </button>
       </div>
 
       <div class="ip"></div>
@@ -385,7 +400,6 @@ export class RadarsCameraFeedElement extends HTMLElement {
 
 		this.#video = shadow.querySelector("video");
 		this.#nameEl = shadow.querySelector(".name");
-		this.#statusEl = shadow.querySelector(".status");
 		this.#ipEl = shadow.querySelector(".ip");
 		this.#modeToggle = shadow.querySelector(".mode-toggle");
 		this.#threatLabelEl = shadow.querySelector(".threat-label");
@@ -407,6 +421,38 @@ export class RadarsCameraFeedElement extends HTMLElement {
 				}),
 			);
 		});
+
+		this.#fullscreenBtn = shadow.querySelector(".fullscreen-btn");
+		this.#iconExpand = shadow.querySelector(".icon-expand");
+		this.#iconExit = shadow.querySelector(".icon-exit");
+
+		this.#fullscreenBtn?.addEventListener("click", () =>
+			this.#toggleFullscreen(),
+		);
+
+		document.addEventListener("fullscreenchange", this.#onFullscreenChange);
+	}
+
+	#onFullscreenChange = (): void => {
+		const isFullscreen = document.fullscreenElement === this;
+		this.#iconExpand?.classList.toggle("hidden", isFullscreen);
+		this.#iconExit?.classList.toggle("hidden", !isFullscreen);
+		this.#fullscreenBtn?.setAttribute(
+			"title",
+			isFullscreen ? "Exit full screen" : "Full screen",
+		);
+		this.#fullscreenBtn?.setAttribute(
+			"aria-label",
+			isFullscreen ? "Exit full screen" : "Toggle full screen",
+		);
+	};
+
+	#toggleFullscreen(): void {
+		if (document.fullscreenElement === this) {
+			document.exitFullscreen?.();
+		} else {
+			this.requestFullscreen?.();
+		}
 	}
 
 	get cameraId(): number | null {
@@ -423,10 +469,6 @@ export class RadarsCameraFeedElement extends HTMLElement {
 
 	get variant(): Variant {
 		return parseVariant(this.getAttribute("variant"));
-	}
-
-	get status(): Status {
-		return parseStatus(this.getAttribute("status"));
 	}
 
 	#unsubscribeFromModeStore(): void {
@@ -496,13 +538,6 @@ export class RadarsCameraFeedElement extends HTMLElement {
 
 		if (this.#modeToggle) {
 			this.#modeToggle.classList.toggle("night", mode === "night");
-		}
-
-		if (this.#statusEl) {
-			const status = this.status;
-			this.#statusEl.classList.toggle("online", status === "online");
-			this.#statusEl.classList.toggle("offline", status !== "online");
-			this.#statusEl.textContent = status === "online" ? "ONLINE" : "OFFLINE";
 		}
 
 		if (this.#threatLabelEl) {

@@ -85,9 +85,10 @@ function initTabBar(): void {
 // Initialize fullscreen button
 function initFullscreenButton(): void {
 	const fullscreenBtn = document.getElementById("fullscreenBtn");
-	const fullscreenIcon = fullscreenBtn?.querySelector(".fullscreen-icon");
+	const iconExpand = fullscreenBtn?.querySelector<SVGElement>(".fullscreen-icon-expand");
+	const iconExit = fullscreenBtn?.querySelector<SVGElement>(".fullscreen-icon-exit");
 
-	if (!fullscreenBtn || !fullscreenIcon) return;
+	if (!fullscreenBtn || !iconExpand || !iconExit) return;
 
 	// Check if Fullscreen API is supported
 	if (!document.fullscreenEnabled) {
@@ -112,13 +113,11 @@ function initFullscreenButton(): void {
 
 	// Update icon when fullscreen state changes
 	document.addEventListener("fullscreenchange", () => {
-		if (document.fullscreenElement) {
-			// In fullscreen - show exit icon
-			fullscreenIcon.textContent = "✕";
-		} else {
-			// Not in fullscreen - show expand icon
-			fullscreenIcon.textContent = "⛶";
-		}
+		const isFullscreen = !!document.fullscreenElement;
+		iconExpand.classList.toggle("hidden", isFullscreen);
+		iconExit.classList.toggle("hidden", !isFullscreen);
+		fullscreenBtn.setAttribute("title", isFullscreen ? "Exit Fullscreen" : "Toggle Fullscreen");
+		fullscreenBtn.setAttribute("aria-label", isFullscreen ? "Exit full screen" : "Toggle full screen");
 	});
 }
 
