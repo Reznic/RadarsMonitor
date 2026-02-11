@@ -3,22 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Radar Monitor</title>
+    <title data-i18n="app.title">Radar Monitor</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
     <div class="container">
       <!-- Tab Bar -->
       <div class="tab-bar">
-        <button class="tab-btn active" data-view="radar">Radar</button>
-        <button class="tab-btn" data-view="camera">Cameras</button>
+        <button class="tab-btn active" data-view="radar" data-i18n="tabs.radar">Radar</button>
+        <button class="tab-btn" data-view="camera" data-i18n="tabs.cameras">Cameras</button>
       </div>
 
       <!-- HUD Display -->
       <div class="hud" id="hud">
         <div class="hud-header" id="hudHeader">
           <div class="hud-heading">
-            <div class="hud-status" id="status">CHECKING...</div>
+            <div class="hud-status" id="status" data-i18n="hud.checking">CHECKING...</div>
           </div>
           <button class="hud-toggle" id="hudToggle">▼</button>
         </div>
@@ -31,7 +31,7 @@
       <!-- Debug Menu -->
       <div class="debug-menu" id="debugMenu">
         <div class="debug-header">
-          <div class="debug-label">DEBUG MENU</div>
+          <div class="debug-label" data-i18n="debug.menuLabel">DEBUG MENU</div>
           <button class="debug-toggle" id="debugToggle">▼</button>
         </div>
         <div class="debug-content" id="debugContent">
@@ -44,7 +44,13 @@
       </div>
 
       <!-- Fullscreen Button -->
-      <button class="fullscreen-btn" id="fullscreenBtn" title="Toggle Fullscreen" aria-label="Toggle full screen">
+      <button
+        class="fullscreen-btn"
+        id="fullscreenBtn"
+        title="Toggle Fullscreen"
+        aria-label="Toggle full screen"
+        data-i18n-attr="title:fullscreen.toggle,aria-label:fullscreen.ariaToggle"
+      >
         <svg class="fullscreen-icon-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
         </svg>
@@ -61,8 +67,8 @@
       <!-- Track Alert Overlay -->
       <div class="track-alert-overlay hidden" id="trackAlertOverlay">
         <div class="track-alert-header">
-          <span class="track-alert-title">TRACK DETECTED</span>
-          <button class="track-alert-close" id="trackAlertClose">DISMISS ALL</button>
+          <span class="track-alert-title" id="trackAlertTitle" data-i18n="alerts.trackDetected">TRACK DETECTED</span>
+          <button class="track-alert-close" id="trackAlertClose" data-i18n="alerts.dismissAll">DISMISS ALL</button>
         </div>
         <div class="track-alert-grid" id="trackAlertGrid">
           <!-- Alert camera feeds will be generated dynamically -->

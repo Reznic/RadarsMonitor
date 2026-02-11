@@ -1,6 +1,11 @@
 import { CAMERAS, type CameraMode, getCameraStreamUrl } from "../config.ts";
 import { isCameraUrlsVisible, subscribeDebugConfig } from "../debugConfig.ts";
 import {
+	getLocalizedCameraName,
+	subscribeLanguageChange,
+	t,
+} from "../i18n/index.ts";
+import {
 	ensureCameraMode,
 	setCameraMode,
 	subscribeCameraMode,
@@ -57,11 +62,13 @@ export class RadarsCameraFeedElement extends HTMLElement {
 	#ipEl: HTMLElement | null = null;
 	#modeToggle: HTMLButtonElement | null = null;
 	#placeholderIpEl: HTMLElement | null = null;
+	#placeholderStatusEl: HTMLElement | null = null;
 	#threatLabelEl: HTMLElement | null = null;
 	#fullscreenBtn: HTMLButtonElement | null = null;
 	#iconExpand: SVGElement | null = null;
 	#iconExit: SVGElement | null = null;
 	#unsubscribeDebugConfig: (() => void) | null = null;
+	#unsubscribeLanguage: (() => void) | null = null;
 
 	connectedCallback(): void {
 		this.#ensureShadowDom();
@@ -69,6 +76,12 @@ export class RadarsCameraFeedElement extends HTMLElement {
 		if (!this.#unsubscribeDebugConfig) {
 			this.#unsubscribeDebugConfig = subscribeDebugConfig(() => {
 				this.#syncUrlVisibility();
+			});
+		}
+		if (!this.#unsubscribeLanguage) {
+			this.#unsubscribeLanguage = subscribeLanguageChange(() => {
+				this.#syncUi();
+				this.#onFullscreenChange();
 			});
 		}
 		this.#syncUi();
@@ -82,6 +95,10 @@ export class RadarsCameraFeedElement extends HTMLElement {
 		if (this.#unsubscribeDebugConfig) {
 			this.#unsubscribeDebugConfig();
 			this.#unsubscribeDebugConfig = null;
+		}
+		if (this.#unsubscribeLanguage) {
+			this.#unsubscribeLanguage();
+			this.#unsubscribeLanguage = null;
 		}
 	}
 
@@ -347,7 +364,7 @@ export class RadarsCameraFeedElement extends HTMLElement {
       <div class="header">
         <span class="name"></span>
         <div class="header-right">
-          <button class="fullscreen-btn" type="button" title="Full screen" aria-label="Toggle full screen">
+          <button class="fullscreen-btn" type="button" title="${t("fullscreen.toggle")}" aria-label="${t("fullscreen.ariaToggle")}">
             <svg class="icon-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
             </svg>
@@ -364,7 +381,7 @@ export class RadarsCameraFeedElement extends HTMLElement {
         <video autoplay muted playsinline></video>
         <div class="placeholder">
           <div class="placeholder-icon">📷</div>
-          <div>No Signal</div>
+          <div class="placeholder-status">${t("camera.noSignal")}</div>
           <div class="placeholder-ip"></div>
         </div>
         <div class="threat-mini-map" data-role="threat-mini-map" aria-hidden="true">
@@ -383,7 +400,7 @@ export class RadarsCameraFeedElement extends HTMLElement {
         <div class="overlay-slot">
           <slot name="overlay-top-right"></slot>
         </div>
-        <button class="mode-button" type="button" title="Switch camera mode" aria-label="Switch day/night mode"></button>
+        <button class="mode-button" type="button" title="${t("camera.modeSwitch")}" aria-label="${t("camera.dayNightSwitch")}"></button>
       </div>
 
       <div class="ip"></div>
@@ -394,6 +411,7 @@ export class RadarsCameraFeedElement extends HTMLElement {
 		this.#ipEl = shadow.querySelector(".ip");
 		this.#modeToggle = shadow.querySelector(".mode-button");
 		this.#placeholderIpEl = shadow.querySelector(".placeholder-ip");
+		this.#placeholderStatusEl = shadow.querySelector(".placeholder-status");
 		this.#threatLabelEl = shadow.querySelector(".threat-label");
 		if (this.#video) configureCameraFeedVideo(this.#video);
 
@@ -431,11 +449,11 @@ export class RadarsCameraFeedElement extends HTMLElement {
 		this.#iconExit?.classList.toggle("hidden", !isFullscreen);
 		this.#fullscreenBtn?.setAttribute(
 			"title",
-			isFullscreen ? "Exit full screen" : "Full screen",
+			isFullscreen ? t("fullscreen.exit") : t("fullscreen.toggle"),
 		);
 		this.#fullscreenBtn?.setAttribute(
 			"aria-label",
-			isFullscreen ? "Exit full screen" : "Toggle full screen",
+			isFullscreen ? t("fullscreen.ariaExit") : t("fullscreen.ariaToggle"),
 		);
 	};
 
@@ -516,8 +534,10 @@ export class RadarsCameraFeedElement extends HTMLElement {
 			cameraId === null ? undefined : CAMERAS.find((c) => c.id === cameraId);
 		const displayName =
 			this.getAttribute("name") ??
-			camera?.name ??
-			(cameraId !== null ? `CAMERA ${cameraId}` : "CAMERA");
+			(camera ? getLocalizedCameraName(camera.name, camera.id) : null) ??
+			(cameraId !== null
+				? t("camera.defaultNameWithId", { id: cameraId })
+				: t("camera.defaultName"));
 
 		const streamUrl =
 			camera && cameraId !== null ? getCameraStreamUrl(camera, mode) : "";
@@ -528,9 +548,15 @@ export class RadarsCameraFeedElement extends HTMLElement {
 		if (this.#placeholderIpEl) {
 			this.#placeholderIpEl.textContent = streamUrl;
 		}
+		if (this.#placeholderStatusEl) {
+			this.#placeholderStatusEl.textContent = t("camera.noSignal");
+		}
 
 		if (this.#modeToggle) {
-			this.#modeToggle.textContent = mode === "day" ? "DAY" : "NIGHT";
+			this.#modeToggle.textContent =
+				mode === "day" ? t("camera.mode.day") : t("camera.mode.night");
+			this.#modeToggle.setAttribute("title", t("camera.modeSwitch"));
+			this.#modeToggle.setAttribute("aria-label", t("camera.dayNightSwitch"));
 		}
 		this.#syncUrlVisibility();
 

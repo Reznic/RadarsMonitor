@@ -5,6 +5,7 @@ import type {
 } from "../../../types.ts";
 import { getCameraIdByRadarSerial, MAX_DOTS } from "../config.ts";
 import { getTooltipConfig } from "../debugConfig.ts";
+import { getLanguage, t } from "../i18n/index.ts";
 
 // Canvas and context (to be initialized)
 let canvas: HTMLCanvasElement;
@@ -313,23 +314,25 @@ function drawDotTooltip(
 	const texts: string[] = [];
 
 	if (config.track_id) {
-		texts.push(`ID: ${dot.track_id || "?"}`);
+		texts.push(`${t("radar.tooltip.id")}: ${dot.track_id || "?"}`);
 	}
 	if (config.class) {
-		texts.push(`Class: ${dot.class || "?"}`);
+		texts.push(`${t("radar.tooltip.class")}: ${dot.class || "?"}`);
 	}
 	if (config.range) {
-		texts.push(`Range: ${dot.range ? `${dot.range.toFixed(2)}m` : "?"}`);
+		texts.push(
+			`${t("radar.tooltip.range")}: ${dot.range ? `${dot.range.toFixed(2)}m` : "?"}`,
+		);
 	}
 	if (config.azimuth) {
 		texts.push(
-			`Azimuth: ${
+			`${t("radar.tooltip.azimuth")}: ${
 				dot.azimuth !== undefined ? `${dot.azimuth.toFixed(1)}°` : "?"
 			}`,
 		);
 	}
 	if (config.timestamp) {
-		texts.push(`Time: ${dot.timestamp || "?"}`);
+		texts.push(`${t("radar.tooltip.time")}: ${dot.timestamp || "?"}`);
 	}
 
 	// Don't draw tooltip if no fields are enabled
@@ -338,7 +341,11 @@ function drawDotTooltip(
 	}
 
 	// Set font for measurement
+	ctx.save();
 	ctx.font = "14px monospace";
+	const isRtl = getLanguage() === "he";
+	ctx.direction = isRtl ? "rtl" : "ltr";
+	ctx.textAlign = isRtl ? "right" : "left";
 
 	// Calculate tooltip dimensions
 	const maxWidth: number = Math.max(
@@ -410,12 +417,16 @@ function drawDotTooltip(
 	ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${opacity})`;
 	ctx.font = "14px monospace";
 	texts.forEach((text, i) => {
+		const textX = isRtl
+			? finalTooltipX + tooltipWidth - padding
+			: finalTooltipX + padding;
 		ctx.fillText(
 			text,
-			finalTooltipX + padding,
+			textX,
 			finalTooltipY + padding + lineHeight * (i + 1) - 2,
 		);
 	});
+	ctx.restore();
 }
 
 // Draw fading trails for all tracks

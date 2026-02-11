@@ -1,6 +1,9 @@
+import { t } from "../i18n/index.ts";
+
 let alertOverlay: HTMLElement | null = null;
 let alertGrid: HTMLElement | null = null;
 let alertCloseButton: HTMLElement | null = null;
+let alertTitleElement: HTMLElement | null = null;
 
 // Track which radar IDs have active alerts
 const activeAlerts: Set<number> = new Set();
@@ -15,6 +18,9 @@ export function initAlertView(): void {
 	alertOverlay = document.getElementById("trackAlertOverlay");
 	alertGrid = document.getElementById("trackAlertGrid");
 	alertCloseButton = document.getElementById("trackAlertClose");
+	alertTitleElement = document.getElementById("trackAlertTitle");
+
+	refreshAlertLanguage();
 
 	if (alertCloseButton) {
 		alertCloseButton.addEventListener("click", dismissAllAlerts);
@@ -67,7 +73,7 @@ function addAlertCard(cameraId: number, threatAzimuthDeg: number | null): void {
 	const badge = document.createElement("span");
 	badge.setAttribute("slot", "header-right");
 	badge.className = "track-alert-camera-radar";
-	badge.textContent = `RADAR ${cameraId}`;
+	badge.textContent = t("alerts.radarBadge", { id: cameraId });
 
 	const dismiss = document.createElement("button");
 	dismiss.setAttribute("slot", "overlay-top-right");
@@ -104,6 +110,27 @@ function dismissAllAlerts(): void {
 	}
 	if (alertGrid) {
 		alertGrid.innerHTML = "";
+	}
+}
+
+function refreshAlertLanguage(): void {
+	if (alertTitleElement) {
+		alertTitleElement.textContent = t("alerts.trackDetected");
+	}
+	if (alertCloseButton) {
+		alertCloseButton.textContent = t("alerts.dismissAll");
+	}
+}
+
+export function rerenderAlertLanguage(): void {
+	refreshAlertLanguage();
+	for (const [cameraId, card] of alertCards) {
+		const badge = card.querySelector(
+			".track-alert-camera-radar",
+		) as HTMLElement | null;
+		if (badge) {
+			badge.textContent = t("alerts.radarBadge", { id: cameraId });
+		}
 	}
 }
 

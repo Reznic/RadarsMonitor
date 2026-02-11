@@ -950,6 +950,31 @@ body {
 	user-select: none;
 }
 
+.debug-language-field {
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.debug-language-label {
+	color: rgba(255, 255, 255, 0.8);
+	font-size: 14px;
+}
+
+.debug-language-select {
+	background: rgba(255, 255, 255, 0.08);
+	border: 1px solid rgba(255, 255, 255, 0.2);
+	color: rgba(255, 255, 255, 0.9);
+	border-radius: 6px;
+	padding: 4px 8px;
+	font-size: 13px;
+	font-family: inherit;
+}
+
+.debug-language-select:focus {
+	outline: none;
+	border-color: rgba(255, 255, 255, 0.5);
+}
+
 /* Fullscreen Button */
 .fullscreen-btn {
 	position: absolute;

@@ -12,6 +12,7 @@ import {
 	SERVER_TIMEOUT,
 } from "./config.ts";
 import { isAlertsDisabled } from "./debugConfig.ts";
+import { t } from "./i18n/index.ts";
 import { showTrackAlert } from "./view/alert.ts";
 import { cartesianToCanvas } from "./view/radar.ts";
 
@@ -158,14 +159,14 @@ function sortRadarIds(radarIds: string[]): string[] {
 		);
 }
 
-function renderSensorGrid(radarIds: string[]): void {
+function renderSensorGrid(radarIds: string[], force = false): void {
 	if (!sensorGridElement) return;
 
 	const needsUpdate =
 		radarIds.length !== currentSensorOrder.length ||
 		radarIds.some((id, index) => id !== currentSensorOrder[index]);
 
-	if (!needsUpdate) return;
+	if (!needsUpdate && !force) return;
 
 	console.info("[HUD] Radar list updated:", radarIds);
 	currentSensorOrder = radarIds.slice();
@@ -176,7 +177,7 @@ function renderSensorGrid(radarIds: string[]): void {
 	if (radarIds.length === 0) {
 		const emptyState = document.createElement("div");
 		emptyState.className = "sensor-empty";
-		emptyState.textContent = "No sensors available";
+		emptyState.textContent = t("hud.noSensors");
 		sensorGridElement.appendChild(emptyState);
 		return;
 	}
@@ -193,7 +194,7 @@ function renderSensorGrid(radarIds: string[]): void {
 
 		const label = document.createElement("div");
 		label.className = "sensor-label";
-		label.textContent = "ALL";
+		label.textContent = t("hud.allLabel");
 
 		const statusDiv = document.createElement("div");
 		statusDiv.className = "sensor-status";
@@ -204,7 +205,7 @@ function renderSensorGrid(radarIds: string[]): void {
 
 		const azimuthDiv = document.createElement("div");
 		azimuthDiv.className = "sensor-azimuth";
-		azimuthDiv.textContent = "Bulk control";
+		azimuthDiv.textContent = t("hud.bulkControl");
 
 		const controls = document.createElement("div");
 		controls.className = "sensor-controls";
@@ -231,7 +232,7 @@ function renderSensorGrid(radarIds: string[]): void {
 
 		const statusDiv = document.createElement("div");
 		statusDiv.className = "sensor-status";
-		statusDiv.textContent = "N/A";
+		statusDiv.textContent = t("hud.statusUnknown");
 		sensorElements.set(radarId, statusDiv);
 
 		sensorHeader.appendChild(label);
@@ -239,7 +240,7 @@ function renderSensorGrid(radarIds: string[]): void {
 
 		const azimuthDiv = document.createElement("div");
 		azimuthDiv.className = "sensor-azimuth";
-		azimuthDiv.textContent = "Angles — N/A";
+		azimuthDiv.textContent = t("hud.anglesUnknown");
 		azimuthElements.set(radarId, azimuthDiv);
 
 		const controls = document.createElement("div");
@@ -266,7 +267,7 @@ function createControlButton(
 	button.className = `sensor-btn ${actionClass}`;
 	button.dataset.radarId = radarId;
 	button.dataset.action = action;
-	button.textContent = action.toUpperCase();
+	button.textContent = action === "on" ? t("hud.actionOn") : t("hud.actionOff");
 	return button;
 }
 
@@ -277,7 +278,7 @@ function createAllControlButton(action: "on" | "off"): HTMLButtonElement {
 	button.className = `sensor-btn ${actionClass}`;
 	button.dataset.radarId = "all";
 	button.dataset.action = `all-${action}`;
-	button.textContent = action.toUpperCase();
+	button.textContent = action === "on" ? t("hud.actionOn") : t("hud.actionOff");
 	return button;
 }
 
@@ -398,15 +399,15 @@ async function checkHealth(): Promise<void> {
 		// Update overall status
 		if (statusElement) {
 			if (inactiveRadars.length === 0 && radarIds.length > 0) {
-				statusElement.textContent = "ALL RADARS OK";
+				statusElement.textContent = t("hud.allRadarsOk");
 				statusElement.className = "hud-status healthy";
 			} else if (radarIds.length === 0) {
-				statusElement.textContent = "NO RADARS";
+				statusElement.textContent = t("hud.noRadars");
 				statusElement.className = "hud-status unhealthy";
 			} else {
-				statusElement.textContent = `${inactiveRadars.length} RADAR${
-					inactiveRadars.length > 1 ? "S" : ""
-				} DOWN`;
+				statusElement.textContent = t("hud.radarsDown", {
+					count: inactiveRadars.length,
+				});
 				statusElement.className = "hud-status unhealthy";
 			}
 		}
@@ -428,10 +429,10 @@ async function checkHealth(): Promise<void> {
 				lastIsActiveByRadarId.set(radarId, radarStatus.is_active);
 
 				if (radarStatus.is_active) {
-					sensorElement.textContent = `ON`;
+					sensorElement.textContent = t("hud.statusOn");
 					sensorElement.className = "sensor-status sensor-ok";
 				} else {
-					sensorElement.textContent = `OFF`;
+					sensorElement.textContent = t("hud.statusOff");
 					sensorElement.className = "sensor-status sensor-error";
 				}
 
@@ -440,9 +441,10 @@ async function checkHealth(): Promise<void> {
 					const orientationAngle = radarStatus.orientation_angle;
 					const startAngle = (orientationAngle - 35 + 360) % 360; // Handle negative angles
 					const endAngle = (orientationAngle + 35) % 360;
-					azimuthElement.textContent = `Angles — ${startAngle.toFixed(
-						0,
-					)}° to ${endAngle.toFixed(0)}°`;
+					azimuthElement.textContent = t("hud.anglesRange", {
+						start: startAngle.toFixed(0),
+						end: endAngle.toFixed(0),
+					});
 					azimuthElement.className = "sensor-azimuth";
 				}
 			}
@@ -451,22 +453,27 @@ async function checkHealth(): Promise<void> {
 		setBackendAvailability(false);
 		// Server is unreachable - mark as malfunction
 		if (statusElement) {
-			statusElement.textContent = "MALFUNCTION";
+			statusElement.textContent = t("hud.malfunction");
 			statusElement.className = "hud-status unhealthy";
 		}
 
 		// Mark all sensors as malfunction
 		sensorElements.forEach((sensorElement) => {
-			sensorElement.textContent = "MALFUNCTION";
+			sensorElement.textContent = t("hud.malfunction");
 			sensorElement.className = "sensor-status sensor-malfunction";
 		});
 		azimuthElements.forEach((azimuthElement) => {
-			azimuthElement.textContent = "Angles — ---";
+			azimuthElement.textContent = t("hud.anglesUnavailable");
 			azimuthElement.className = "sensor-azimuth";
 		});
 
 		console.error("Health check failed:", error);
 	}
+}
+
+export function rerenderNetworkLanguage(): void {
+	renderSensorGrid(currentSensorOrder, true);
+	void checkHealth();
 }
 
 // Radar data polling function (now using /tracks endpoint)

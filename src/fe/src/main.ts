@@ -1,18 +1,25 @@
 import { HEALTH_CHECK_INTERVAL } from "./config.ts";
 import "./components/radars-camera-feed.ts";
 import "./components/radars-radar-display.ts";
-import { initDebugMenu } from "./debugMenu.ts";
+import { initDebugMenu, rerenderDebugMenuLanguage } from "./debugMenu.ts";
+import {
+	applyDocumentTranslations,
+	initI18n,
+	subscribeLanguageChange,
+	t,
+} from "./i18n/index.ts";
 import {
 	checkServerAvailability,
 	initNetworkDOM,
 	radarDots,
 	radarStatuses,
+	rerenderNetworkLanguage,
 	startHealthCheck,
 	startRadarPolling,
 	trackHistory,
 } from "./network.ts";
-import { initAlertView } from "./view/alert.ts";
-import { initCameraView } from "./view/camera.ts";
+import { initAlertView, rerenderAlertLanguage } from "./view/alert.ts";
+import { initCameraView, rerenderCameraLanguage } from "./view/camera.ts";
 import {
 	drawInactiveRadarAreas,
 	drawRadarBase,
@@ -35,6 +42,8 @@ let lastFrameTime = 0;
 
 // Initialize application
 function init(): void {
+	initI18n();
+	applyDocumentTranslations();
 	syncRadarCanvas(); // Creates offscreen canvas and draws static base
 	initNetworkDOM();
 	initDebugMenu(); // Initialize debug menu controls
@@ -42,8 +51,32 @@ function init(): void {
 	initAlertView(); // Initialize alert overlay
 	initTabBar(); // Initialize tab bar controls
 	initFullscreenButton();
+	initLanguageRerender();
 	startHealthCheck();
 	startRadarPolling();
+}
+
+function initLanguageRerender(): void {
+	subscribeLanguageChange(() => {
+		applyDocumentTranslations();
+		updateTabBarLabels();
+		updateFullscreenLabels();
+		rerenderDebugMenuLanguage();
+		rerenderNetworkLanguage();
+		rerenderCameraLanguage();
+		rerenderAlertLanguage();
+	});
+}
+
+function updateTabBarLabels(): void {
+	const radarTab = document.querySelector(
+		'.tab-btn[data-view="radar"]',
+	) as HTMLButtonElement | null;
+	const cameraTab = document.querySelector(
+		'.tab-btn[data-view="camera"]',
+	) as HTMLButtonElement | null;
+	if (radarTab) radarTab.textContent = t("tabs.radar");
+	if (cameraTab) cameraTab.textContent = t("tabs.cameras");
 }
 
 function getActiveRadarCanvas(
@@ -135,18 +168,34 @@ function initFullscreenButton(): void {
 
 	// Update icon when fullscreen state changes
 	document.addEventListener("fullscreenchange", () => {
-		const isFullscreen = !!document.fullscreenElement;
-		iconExpand.classList.toggle("hidden", isFullscreen);
-		iconExit.classList.toggle("hidden", !isFullscreen);
-		fullscreenBtn.setAttribute(
-			"title",
-			isFullscreen ? "Exit Fullscreen" : "Toggle Fullscreen",
-		);
-		fullscreenBtn.setAttribute(
-			"aria-label",
-			isFullscreen ? "Exit full screen" : "Toggle full screen",
-		);
+		updateFullscreenLabels();
 	});
+
+	updateFullscreenLabels();
+}
+
+function updateFullscreenLabels(): void {
+	const fullscreenBtn = document.getElementById(
+		"fullscreenBtn",
+	) as HTMLButtonElement | null;
+	const iconExpand = fullscreenBtn?.querySelector<SVGElement>(
+		".fullscreen-icon-expand",
+	);
+	const iconExit = fullscreenBtn?.querySelector<SVGElement>(
+		".fullscreen-icon-exit",
+	);
+	if (!fullscreenBtn || !iconExpand || !iconExit) return;
+	const isFullscreen = !!document.fullscreenElement;
+	iconExpand.classList.toggle("hidden", isFullscreen);
+	iconExit.classList.toggle("hidden", !isFullscreen);
+	fullscreenBtn.setAttribute(
+		"title",
+		isFullscreen ? t("fullscreen.exit") : t("fullscreen.toggle"),
+	);
+	fullscreenBtn.setAttribute(
+		"aria-label",
+		isFullscreen ? t("fullscreen.ariaExit") : t("fullscreen.ariaToggle"),
+	);
 }
 
 // Render frame (throttled to TARGET_FPS to reduce compositor usage)

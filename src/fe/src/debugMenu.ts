@@ -7,11 +7,14 @@ import {
 	setTooltipField,
 	type TooltipFieldConfig,
 } from "./debugConfig.ts";
+import { type AppLanguage, getLanguage, setLanguage, t } from "./i18n/index.ts";
 
 let debugMenu: HTMLElement;
 let debugToggle: HTMLButtonElement;
 let debugContent: HTMLElement;
 let debugFields: HTMLElement;
+let debugLabel: HTMLElement | null;
+let languageSelect: HTMLSelectElement | null = null;
 
 // Initialize debug menu DOM elements and event listeners
 export function initDebugMenu(): void {
@@ -19,11 +22,13 @@ export function initDebugMenu(): void {
 	debugToggle = document.getElementById("debugToggle") as HTMLButtonElement;
 	debugContent = document.getElementById("debugContent") as HTMLElement;
 	debugFields = document.getElementById("debugFields") as HTMLElement;
+	debugLabel = null;
 
 	if (!debugMenu || !debugToggle || !debugContent || !debugFields) {
 		console.error("Debug menu elements not found");
 		return;
 	}
+	debugLabel = debugMenu.querySelector(".debug-label");
 
 	// Set up collapse/expand functionality
 	const debugHeader = debugMenu.querySelector(".debug-header") as HTMLElement;
@@ -47,6 +52,9 @@ function renderFieldCheckboxes(): void {
 	const fields = getAvailableFields();
 
 	debugFields.innerHTML = "";
+	if (debugLabel) {
+		debugLabel.textContent = t("debug.menuLabel");
+	}
 
 	// Group fields by section
 	const sections = new Map<string, ConfigField[]>();
@@ -59,9 +67,9 @@ function renderFieldCheckboxes(): void {
 
 	// Section title mapping
 	const sectionTitles: Record<string, string> = {
-		tooltip: "Tooltip Settings",
-		alerts: "System Settings",
-		cameras: "Camera Settings",
+		tooltip: t("debug.section.tooltip"),
+		alerts: t("debug.section.alerts"),
+		cameras: t("debug.section.cameras"),
 	};
 
 	// Render each section
@@ -94,6 +102,46 @@ function renderFieldCheckboxes(): void {
 			debugFields.appendChild(fieldDiv);
 		}
 	}
+
+	renderLanguageSelector();
+}
+
+function renderLanguageSelector(): void {
+	const sectionTitle = document.createElement("div");
+	sectionTitle.className = "debug-section-title";
+	sectionTitle.textContent = t("debug.section.language");
+	debugFields.appendChild(sectionTitle);
+
+	const fieldDiv = document.createElement("div");
+	fieldDiv.className = "debug-field debug-language-field";
+
+	const label = document.createElement("label");
+	label.className = "debug-language-label";
+	label.htmlFor = "debug-language-select";
+	label.textContent = t("debug.language.label");
+
+	languageSelect = document.createElement("select");
+	languageSelect.id = "debug-language-select";
+	languageSelect.className = "debug-language-select";
+
+	const options: AppLanguage[] = ["en", "he"];
+	for (const language of options) {
+		const option = document.createElement("option");
+		option.value = language;
+		option.textContent =
+			language === "he" ? t("debug.language.he") : t("debug.language.en");
+		languageSelect.appendChild(option);
+	}
+
+	languageSelect.value = getLanguage();
+	languageSelect.addEventListener("change", () => {
+		const nextLanguage = languageSelect?.value === "he" ? "he" : "en";
+		setLanguage(nextLanguage);
+	});
+
+	fieldDiv.appendChild(label);
+	fieldDiv.appendChild(languageSelect);
+	debugFields.appendChild(fieldDiv);
 }
 
 // Handle field checkbox toggle
@@ -164,4 +212,9 @@ function loadDebugMenuState(): void {
 	} catch (e) {
 		console.warn("Failed to load debug menu state", e);
 	}
+}
+
+export function rerenderDebugMenuLanguage(): void {
+	if (!debugFields) return;
+	renderFieldCheckboxes();
 }

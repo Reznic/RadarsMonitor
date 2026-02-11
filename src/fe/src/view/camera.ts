@@ -1,4 +1,5 @@
 import { CAMERAS } from "../config.ts";
+import { getLocalizedCameraName, t } from "../i18n/index.ts";
 import {
 	isCameraVisible,
 	setCameraVisible,
@@ -23,22 +24,22 @@ function renderCameraList(): void {
 
 	cameraList.innerHTML = `
 		<div class="camera-list-header">
-			<div class="camera-list-title">CAMERAS</div>
+			<div class="camera-list-title">${t("camera.listTitle")}</div>
 			<button
 				type="button"
 				class="camera-list-collapse-btn"
 				id="cameraListCollapseBtn"
-				aria-label="${collapsed ? "Expand camera list" : "Collapse camera list"}"
-				title="${collapsed ? "Expand camera list" : "Collapse camera list"}"
+				aria-label="${collapsed ? t("camera.expandList") : t("camera.collapseList")}"
+				title="${collapsed ? t("camera.expandList") : t("camera.collapseList")}"
 			>▼</button>
 		</div>
 		<div class="camera-list-items">
 			${CAMERAS.map(
 				(camera) => `
 				<div class="camera-list-item" data-camera-id="${camera.id}">
-					<span class="camera-list-name">${escapeHtml(camera.name)}</span>
-					<button type="button" class="camera-list-toggle" data-camera-id="${camera.id}" aria-label="${isCameraVisible(camera.id) ? "Hide" : "Show"} ${escapeHtml(camera.name)}">
-						${isCameraVisible(camera.id) ? "Hide" : "Show"}
+					<span class="camera-list-name">${escapeHtml(getLocalizedCameraName(camera.name, camera.id))}</span>
+					<button type="button" class="camera-list-toggle" data-camera-id="${camera.id}" aria-label="${isCameraVisible(camera.id) ? t("camera.hide") : t("camera.show")} ${escapeHtml(getLocalizedCameraName(camera.name, camera.id))}">
+						${isCameraVisible(camera.id) ? t("camera.hide") : t("camera.show")}
 					</button>
 				</div>
 			`,
@@ -58,11 +59,11 @@ function renderCameraList(): void {
 		if (collapseBtn) {
 			collapseBtn.setAttribute(
 				"aria-label",
-				isCollapsed ? "Expand camera list" : "Collapse camera list",
+				isCollapsed ? t("camera.expandList") : t("camera.collapseList"),
 			);
 			collapseBtn.setAttribute(
 				"title",
-				isCollapsed ? "Expand camera list" : "Collapse camera list",
+				isCollapsed ? t("camera.expandList") : t("camera.collapseList"),
 			);
 		}
 	});
@@ -99,6 +100,10 @@ function renderCameraGrid(): void {
 	).join("");
 
 	updateCameraGridVisibility();
+}
+
+export function rerenderCameraLanguage(): void {
+	renderCameraList();
 }
 
 function updateCameraGridVisibility(): void {

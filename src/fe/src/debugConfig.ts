@@ -1,3 +1,5 @@
+import { t } from "./i18n/index.ts";
+
 // Debug configuration for tooltip display
 export interface ConfigField {
 	key: string;
@@ -107,49 +109,49 @@ export function getAvailableFields(): ConfigField[] {
 	return [
 		{
 			key: "show_tooltips",
-			label: "Show Tooltips",
+			label: t("debug.field.show_tooltips"),
 			enabled: currentConfig.show_tooltips,
 			section: "tooltip",
 		},
 		{
 			key: "track_id",
-			label: "Track ID",
+			label: t("debug.field.track_id"),
 			enabled: currentConfig.track_id,
 			section: "tooltip",
 		},
 		{
 			key: "class",
-			label: "Class",
+			label: t("debug.field.class"),
 			enabled: currentConfig.class,
 			section: "tooltip",
 		},
 		{
 			key: "range",
-			label: "Range",
+			label: t("debug.field.range"),
 			enabled: currentConfig.range,
 			section: "tooltip",
 		},
 		{
 			key: "azimuth",
-			label: "Azimuth",
+			label: t("debug.field.azimuth"),
 			enabled: currentConfig.azimuth,
 			section: "tooltip",
 		},
 		{
 			key: "timestamp",
-			label: "Timestamp",
+			label: t("debug.field.timestamp"),
 			enabled: currentConfig.timestamp,
 			section: "tooltip",
 		},
 		{
 			key: "disable_alerts",
-			label: "Disable Alerts",
+			label: t("debug.field.disable_alerts"),
 			enabled: disableAlerts,
 			section: "alerts",
 		},
 		{
 			key: "show_camera_urls",
-			label: "Show Camera URLs",
+			label: t("debug.field.show_camera_urls"),
 			enabled: showCameraUrls,
 			section: "cameras",
 		},
