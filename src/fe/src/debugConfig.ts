@@ -3,7 +3,7 @@ export interface ConfigField {
 	key: string;
 	label: string;
 	enabled: boolean;
-	section: "tooltip" | "alerts";
+	section: "tooltip" | "alerts" | "cameras";
 }
 
 export interface TooltipFieldConfig {
@@ -13,6 +13,11 @@ export interface TooltipFieldConfig {
 	range: boolean;
 	azimuth: boolean;
 	timestamp: boolean;
+}
+
+export interface DebugConfigSnapshot extends TooltipFieldConfig {
+	disable_alerts: boolean;
+	show_camera_urls: boolean;
 }
 
 // Default configuration - all fields enabled
@@ -30,6 +35,23 @@ let currentConfig: TooltipFieldConfig = { ...defaultConfig };
 
 // Alerts configuration state
 let disableAlerts = false;
+let showCameraUrls = false;
+const listeners = new Set<(config: DebugConfigSnapshot) => void>();
+
+function getDebugConfigSnapshot(): DebugConfigSnapshot {
+	return {
+		...currentConfig,
+		disable_alerts: disableAlerts,
+		show_camera_urls: showCameraUrls,
+	};
+}
+
+function notifyListeners(): void {
+	const snapshot = getDebugConfigSnapshot();
+	for (const listener of listeners) {
+		listener(snapshot);
+	}
+}
 
 // Get current configuration
 export function getTooltipConfig(): TooltipFieldConfig {
@@ -42,11 +64,13 @@ export function setTooltipField(
 	enabled: boolean,
 ): void {
 	currentConfig[field] = enabled;
+	notifyListeners();
 }
 
 // Reset to defaults
 export function resetTooltipConfig(): void {
 	currentConfig = { ...defaultConfig };
+	notifyListeners();
 }
 
 // Get alerts disabled state
@@ -57,6 +81,25 @@ export function isAlertsDisabled(): boolean {
 // Set alerts disabled state
 export function setAlertsDisabled(disabled: boolean): void {
 	disableAlerts = disabled;
+	notifyListeners();
+}
+
+export function isCameraUrlsVisible(): boolean {
+	return showCameraUrls;
+}
+
+export function setCameraUrlsVisible(visible: boolean): void {
+	showCameraUrls = visible;
+	notifyListeners();
+}
+
+export function subscribeDebugConfig(
+	listener: (config: DebugConfigSnapshot) => void,
+): () => void {
+	listeners.add(listener);
+	return () => {
+		listeners.delete(listener);
+	};
 }
 
 // Get all available fields with metadata
@@ -103,6 +146,12 @@ export function getAvailableFields(): ConfigField[] {
 			label: "Disable Alerts",
 			enabled: disableAlerts,
 			section: "alerts",
+		},
+		{
+			key: "show_camera_urls",
+			label: "Show Camera URLs",
+			enabled: showCameraUrls,
+			section: "cameras",
 		},
 	];
 }

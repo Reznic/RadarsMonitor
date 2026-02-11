@@ -28,21 +28,29 @@ let sweepAngle: number = 0; // Current angle in radians
 let lastSweepUpdate: number = Date.now();
 
 // Initialize canvas dimensions and context
-export function initCanvas(): void {
-	canvas = document.getElementById("radar") as HTMLCanvasElement;
+export function initCanvas(targetCanvas?: HTMLCanvasElement): void {
+	canvas =
+		targetCanvas ??
+		(document.querySelector(
+			'.radar-canvas[data-radar-canvas="main"]',
+		) as HTMLCanvasElement);
+	if (!canvas) {
+		throw new Error("Radar canvas element not found");
+	}
 	const context = canvas.getContext("2d");
 	if (!context) throw new Error("Failed to get 2D context");
 	ctx = context;
 
 	ensureVehicleImageRequested();
 
-	// Calculate size based on viewport - use the smaller dimension to keep it circular
+	// Calculate size based on container - use smaller dimension to keep it circular.
 	// Cap maximum size to keep canvas resolution reasonable on large/high-DPI displays
 	const maxSize = 900; // pixels
-	const size = Math.min(
-		Math.min(window.innerWidth, window.innerHeight) * 0.95,
-		maxSize,
-	);
+	const parentRect = canvas.parentElement?.getBoundingClientRect();
+	const containerWidth = parentRect?.width ?? window.innerWidth;
+	const containerHeight = parentRect?.height ?? window.innerHeight;
+	const available = Math.min(containerWidth, containerHeight);
+	const size = Math.min(Math.max(available * 0.95, 160), maxSize);
 	canvas.width = size;
 	canvas.height = size;
 

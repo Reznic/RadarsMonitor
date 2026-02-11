@@ -1,15 +1,16 @@
 import { CAMERAS, type CameraMode, getCameraStreamUrl } from "../config.ts";
+import { isCameraUrlsVisible, subscribeDebugConfig } from "../debugConfig.ts";
+import {
+	ensureCameraMode,
+	setCameraMode,
+	subscribeCameraMode,
+} from "../store/cameraModeStore.ts";
 import { createSharedWhepManager } from "../stream/sharedWebrtc.ts";
 import {
 	azimuthDegToCardinal8,
 	normalizeAzimuthDeg,
 } from "../view/threatDirection.ts";
 import { configureCameraFeedVideo } from "./cameraFeedVideo.ts";
-import {
-	ensureCameraMode,
-	setCameraMode,
-	subscribeCameraMode,
-} from "../store/cameraModeStore.ts";
 
 const whepManager = createSharedWhepManager();
 
@@ -55,14 +56,21 @@ export class RadarsCameraFeedElement extends HTMLElement {
 	#nameEl: HTMLElement | null = null;
 	#ipEl: HTMLElement | null = null;
 	#modeToggle: HTMLButtonElement | null = null;
+	#placeholderIpEl: HTMLElement | null = null;
 	#threatLabelEl: HTMLElement | null = null;
 	#fullscreenBtn: HTMLButtonElement | null = null;
 	#iconExpand: SVGElement | null = null;
 	#iconExit: SVGElement | null = null;
+	#unsubscribeDebugConfig: (() => void) | null = null;
 
 	connectedCallback(): void {
 		this.#ensureShadowDom();
 		this.#ensureModeSync();
+		if (!this.#unsubscribeDebugConfig) {
+			this.#unsubscribeDebugConfig = subscribeDebugConfig(() => {
+				this.#syncUrlVisibility();
+			});
+		}
 		this.#syncUi();
 		this.#syncStream();
 	}
@@ -71,6 +79,10 @@ export class RadarsCameraFeedElement extends HTMLElement {
 		document.removeEventListener("fullscreenchange", this.#onFullscreenChange);
 		this.#detach();
 		this.#unsubscribeFromModeStore();
+		if (this.#unsubscribeDebugConfig) {
+			this.#unsubscribeDebugConfig();
+			this.#unsubscribeDebugConfig = null;
+		}
 	}
 
 	attributeChangedCallback(): void {
@@ -166,40 +178,26 @@ export class RadarsCameraFeedElement extends HTMLElement {
           display: none;
         }
 
-        .mode-toggle {
-          display: flex;
-          padding: 0;
+        .mode-button {
+          position: absolute;
+          left: 10px;
+          bottom: 10px;
+          padding: 6px 12px;
           font-size: 10px;
-          font-weight: bold;
-          letter-spacing: 0.5px;
-          background: rgba(0, 0, 0, 0.3);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          border-radius: 4px;
+          font-weight: 700;
+          letter-spacing: 0.8px;
+          background: rgba(0, 0, 0, 0.55);
+          border: 1px solid rgba(255, 255, 255, 0.3);
+          border-radius: 8px;
+          color: rgba(255, 255, 255, 0.9);
           cursor: pointer;
-          overflow: hidden;
+          z-index: 12;
           font-family: inherit;
         }
 
-        .mode-toggle:hover {
-          border-color: rgba(255, 255, 255, 0.4);
-        }
-
-        .mode-day,
-        .mode-night {
-          padding: 3px 6px;
-          color: rgba(255, 255, 255, 0.5);
-          background: transparent;
-          user-select: none;
-        }
-
-        .mode-toggle:not(.night) .mode-day {
-          color: #ffffff;
-          background: rgba(255, 255, 255, 0.2);
-        }
-
-        .mode-toggle.night .mode-night {
-          color: #ffffff;
-          background: rgba(255, 255, 255, 0.2);
+        .mode-button:hover {
+          border-color: rgba(255, 255, 255, 0.5);
+          background: rgba(0, 0, 0, 0.75);
         }
 
         .feed {
@@ -321,20 +319,16 @@ export class RadarsCameraFeedElement extends HTMLElement {
         }
 
         .fullscreen-btn {
-          position: absolute;
-          right: 10px;
-          bottom: 10px;
-          width: 48px;
-          height: 48px;
+          width: 30px;
+          height: 30px;
           padding: 0;
           display: flex;
           align-items: center;
           justify-content: center;
-          background: rgba(0, 0, 0, 0.5);
+          background: rgba(0, 0, 0, 0.35);
           border: 1px solid rgba(255, 255, 255, 0.25);
-          border-radius: 10px;
+          border-radius: 6px;
           cursor: pointer;
-          z-index: 12;
           color: rgba(255, 255, 255, 0.85);
           transition: background 0.15s, border-color 0.15s;
         }
@@ -345,17 +339,21 @@ export class RadarsCameraFeedElement extends HTMLElement {
         }
 
         .fullscreen-btn svg {
-          width: 24px;
-          height: 24px;
+          width: 16px;
+          height: 16px;
         }
       </style>
 
       <div class="header">
         <span class="name"></span>
         <div class="header-right">
-          <button class="mode-toggle" type="button">
-            <span class="mode-day">DAY</span>
-            <span class="mode-night">NIGHT</span>
+          <button class="fullscreen-btn" type="button" title="Full screen" aria-label="Toggle full screen">
+            <svg class="icon-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+            </svg>
+            <svg class="icon-exit hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
+            </svg>
           </button>
           <span class="threat-label hidden"></span>
           <slot name="header-right"></slot>
@@ -385,14 +383,7 @@ export class RadarsCameraFeedElement extends HTMLElement {
         <div class="overlay-slot">
           <slot name="overlay-top-right"></slot>
         </div>
-        <button class="fullscreen-btn" type="button" title="Full screen" aria-label="Toggle full screen">
-          <svg class="icon-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
-          </svg>
-          <svg class="icon-exit hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
-          </svg>
-        </button>
+        <button class="mode-button" type="button" title="Switch camera mode" aria-label="Switch day/night mode"></button>
       </div>
 
       <div class="ip"></div>
@@ -401,7 +392,8 @@ export class RadarsCameraFeedElement extends HTMLElement {
 		this.#video = shadow.querySelector("video");
 		this.#nameEl = shadow.querySelector(".name");
 		this.#ipEl = shadow.querySelector(".ip");
-		this.#modeToggle = shadow.querySelector(".mode-toggle");
+		this.#modeToggle = shadow.querySelector(".mode-button");
+		this.#placeholderIpEl = shadow.querySelector(".placeholder-ip");
 		this.#threatLabelEl = shadow.querySelector(".threat-label");
 		if (this.#video) configureCameraFeedVideo(this.#video);
 
@@ -533,12 +525,14 @@ export class RadarsCameraFeedElement extends HTMLElement {
 		if (this.#nameEl) this.#nameEl.textContent = displayName;
 		if (this.#ipEl) this.#ipEl.textContent = streamUrl;
 
-		const placeholderIp = this.shadowRoot?.querySelector(".placeholder-ip");
-		if (placeholderIp) placeholderIp.textContent = streamUrl;
+		if (this.#placeholderIpEl) {
+			this.#placeholderIpEl.textContent = streamUrl;
+		}
 
 		if (this.#modeToggle) {
-			this.#modeToggle.classList.toggle("night", mode === "night");
+			this.#modeToggle.textContent = mode === "day" ? "DAY" : "NIGHT";
 		}
+		this.#syncUrlVisibility();
 
 		if (this.#threatLabelEl) {
 			const threatAzimuthDeg = parseThreatAzimuth(
@@ -576,6 +570,12 @@ export class RadarsCameraFeedElement extends HTMLElement {
 		this.#detach();
 		this.#detachStream = whepManager.attach(this.#video, url);
 		this.#attachedUrl = url;
+	}
+
+	#syncUrlVisibility(): void {
+		const showUrls = isCameraUrlsVisible();
+		this.#ipEl?.classList.toggle("hidden", !showUrls);
+		this.#placeholderIpEl?.classList.toggle("hidden", !showUrls);
 	}
 
 	#detach(): void {

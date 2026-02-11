@@ -54,14 +54,8 @@
       </button>
 
       <!-- Radar Display -->
-      <div class="radar-container" id="radarView">
-        <canvas id="radar"></canvas>
-
-        <!-- Side Labels -->
-        <div class="label label-top">TOP</div>
-        <div class="label label-right">RIGHT</div>
-        <div class="label label-bottom">BOTTOM</div>
-        <div class="label label-left">LEFT</div>
+      <div id="radarView">
+        <radars-radar-display target="main"></radars-radar-display>
       </div>
 
       <!-- Track Alert Overlay -->
@@ -82,15 +76,15 @@
             <div class="camera-grid" id="cameraGrid">
               <!-- Camera feeds will be generated dynamically -->
             </div>
-            <div class="camera-list-wrapper" id="cameraListWrapper">
-              <button type="button" class="camera-list-collapse-btn" id="cameraListCollapseBtn" aria-label="Toggle camera list" title="Toggle camera list">
-                <svg class="camera-list-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M9 18l6-6-6-6" />
-                </svg>
-              </button>
-              <aside class="camera-list" id="cameraList">
-                <!-- Camera list with show/hide toggles -->
-              </aside>
+            <div class="camera-side-column">
+              <div class="camera-list-wrapper" id="cameraListWrapper">
+                <aside class="camera-list" id="cameraList">
+                  <!-- Camera list with show/hide toggles -->
+                </aside>
+              </div>
+              <div class="camera-side-radar">
+                <radars-radar-display target="mini" compact></radars-radar-display>
+              </div>
             </div>
           </div>
         </div>

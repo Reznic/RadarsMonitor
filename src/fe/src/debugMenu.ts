@@ -3,6 +3,7 @@ import {
 	type ConfigField,
 	getAvailableFields,
 	setAlertsDisabled,
+	setCameraUrlsVisible,
 	setTooltipField,
 	type TooltipFieldConfig,
 } from "./debugConfig.ts";
@@ -60,6 +61,7 @@ function renderFieldCheckboxes(): void {
 	const sectionTitles: Record<string, string> = {
 		tooltip: "Tooltip Settings",
 		alerts: "System Settings",
+		cameras: "Camera Settings",
 	};
 
 	// Render each section
@@ -98,6 +100,8 @@ function renderFieldCheckboxes(): void {
 function handleFieldToggle(fieldKey: string, enabled: boolean): void {
 	if (fieldKey === "disable_alerts") {
 		setAlertsDisabled(enabled);
+	} else if (fieldKey === "show_camera_urls") {
+		setCameraUrlsVisible(enabled);
 	} else {
 		setTooltipField(fieldKey as keyof TooltipFieldConfig, enabled);
 	}
@@ -144,6 +148,8 @@ function loadDebugMenuState(): void {
 			for (const [key, enabled] of Object.entries(fields)) {
 				if (key === "disable_alerts") {
 					setAlertsDisabled(Boolean(enabled));
+				} else if (key === "show_camera_urls") {
+					setCameraUrlsVisible(Boolean(enabled));
 				} else {
 					setTooltipField(key as keyof TooltipFieldConfig, Boolean(enabled));
 				}

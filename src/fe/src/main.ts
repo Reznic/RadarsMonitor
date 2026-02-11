@@ -1,5 +1,6 @@
 import { HEALTH_CHECK_INTERVAL } from "./config.ts";
 import "./components/radars-camera-feed.ts";
+import "./components/radars-radar-display.ts";
 import { initDebugMenu } from "./debugMenu.ts";
 import {
 	checkServerAvailability,
@@ -34,7 +35,7 @@ let lastFrameTime = 0;
 
 // Initialize application
 function init(): void {
-	initCanvas(); // Creates offscreen canvas and draws static base
+	syncRadarCanvas(); // Creates offscreen canvas and draws static base
 	initNetworkDOM();
 	initDebugMenu(); // Initialize debug menu controls
 	initCameraView(); // Initialize camera view
@@ -43,6 +44,21 @@ function init(): void {
 	initFullscreenButton();
 	startHealthCheck();
 	startRadarPolling();
+}
+
+function getActiveRadarCanvas(
+	view: ViewType = currentView,
+): HTMLCanvasElement | null {
+	const target = view === "radar" ? "main" : "mini";
+	return document.querySelector(
+		`.radar-canvas[data-radar-canvas="${target}"]`,
+	) as HTMLCanvasElement | null;
+}
+
+function syncRadarCanvas(view: ViewType = currentView): void {
+	const canvas = getActiveRadarCanvas(view);
+	if (!canvas) return;
+	initCanvas(canvas);
 }
 
 // Initialize tab bar
@@ -78,6 +94,8 @@ function initTabBar(): void {
 				hud?.classList.add("hidden");
 				debugMenu?.classList.add("hidden");
 			}
+
+			syncRadarCanvas(view);
 		});
 	});
 }
@@ -85,8 +103,12 @@ function initTabBar(): void {
 // Initialize fullscreen button
 function initFullscreenButton(): void {
 	const fullscreenBtn = document.getElementById("fullscreenBtn");
-	const iconExpand = fullscreenBtn?.querySelector<SVGElement>(".fullscreen-icon-expand");
-	const iconExit = fullscreenBtn?.querySelector<SVGElement>(".fullscreen-icon-exit");
+	const iconExpand = fullscreenBtn?.querySelector<SVGElement>(
+		".fullscreen-icon-expand",
+	);
+	const iconExit = fullscreenBtn?.querySelector<SVGElement>(
+		".fullscreen-icon-exit",
+	);
 
 	if (!fullscreenBtn || !iconExpand || !iconExit) return;
 
@@ -116,8 +138,14 @@ function initFullscreenButton(): void {
 		const isFullscreen = !!document.fullscreenElement;
 		iconExpand.classList.toggle("hidden", isFullscreen);
 		iconExit.classList.toggle("hidden", !isFullscreen);
-		fullscreenBtn.setAttribute("title", isFullscreen ? "Exit Fullscreen" : "Toggle Fullscreen");
-		fullscreenBtn.setAttribute("aria-label", isFullscreen ? "Exit full screen" : "Toggle full screen");
+		fullscreenBtn.setAttribute(
+			"title",
+			isFullscreen ? "Exit Fullscreen" : "Toggle Fullscreen",
+		);
+		fullscreenBtn.setAttribute(
+			"aria-label",
+			isFullscreen ? "Exit full screen" : "Toggle full screen",
+		);
 	});
 }
 
@@ -130,17 +158,15 @@ function render(timestamp: number): void {
 	}
 	lastFrameTime = timestamp;
 
-	if (currentView === "radar") {
-		checkServerAvailability();
-		updateSweepLine(HEALTH_CHECK_INTERVAL); // Update sweep line animation
-		drawRadarBase();
-		drawInactiveRadarAreas(radarStatuses); // Draw greyed areas for inactive radars
-		drawSweepLine(); // Draw sweep line after base, before dots
-		drawRadarTrails(trackHistory); // Draw fading trails before current dots
-		drawRadarDots(radarDots);
-		drawVehicleOverlay(); // Ensure vehicle and markers render above dots/trails
-		drawRadarUnitIndices(radarStatuses);
-	}
+	checkServerAvailability();
+	updateSweepLine(HEALTH_CHECK_INTERVAL); // Update sweep line animation
+	drawRadarBase();
+	drawInactiveRadarAreas(radarStatuses); // Draw greyed areas for inactive radars
+	drawSweepLine(); // Draw sweep line after base, before dots
+	drawRadarTrails(trackHistory); // Draw fading trails before current dots
+	drawRadarDots(radarDots);
+	drawVehicleOverlay(); // Ensure vehicle and markers render above dots/trails
+	drawRadarUnitIndices(radarStatuses);
 	requestAnimationFrame(render);
 }
 
@@ -151,7 +177,7 @@ window.addEventListener("resize", () => {
 		clearTimeout(resizeTimeout);
 	}
 	resizeTimeout = setTimeout(() => {
-		initCanvas(); // Reinitialize canvas with new dimensions
+		syncRadarCanvas(); // Reinitialize active canvas with new dimensions
 	}, 250);
 });
 
