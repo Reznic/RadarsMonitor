@@ -91,9 +91,15 @@ function renderCameraGrid(): void {
 function updateCameraGridVisibility(): void {
 	if (!cameraGrid) return;
 
+	let visibleCount = 0;
 	for (const feed of Array.from(cameraGrid.querySelectorAll("radars-camera-feed"))) {
 		const cameraId = Number.parseInt(feed.getAttribute("camera-id") ?? "", 10);
 		if (!Number.isFinite(cameraId)) continue;
-		(feed as HTMLElement).style.display = isCameraVisible(cameraId) ? "" : "none";
+		const visible = isCameraVisible(cameraId);
+		if (visible) visibleCount++;
+		(feed as HTMLElement).style.display = visible ? "" : "none";
 	}
+
+	cameraGrid.classList.toggle("cols-1", visibleCount === 1 || visibleCount === 2);
+	cameraGrid.classList.toggle("cols-2", visibleCount >= 3 && visibleCount < 5);
 }
