@@ -9,7 +9,7 @@ import {
 	ensureCameraMode,
 	setCameraMode,
 	subscribeCameraMode,
-} from "./cameraModeStore.ts";
+} from "../store/cameraModeStore.ts";
 
 const whepManager = createSharedWhepManager();
 
@@ -324,15 +324,15 @@ export class RadarsCameraFeedElement extends HTMLElement {
           position: absolute;
           right: 8px;
           bottom: 8px;
-          width: 28px;
-          height: 28px;
+          width: 36px;
+          height: 36px;
           padding: 0;
           display: flex;
           align-items: center;
           justify-content: center;
           background: rgba(0, 0, 0, 0.5);
           border: 1px solid rgba(255, 255, 255, 0.25);
-          border-radius: 6px;
+          border-radius: 8px;
           cursor: pointer;
           z-index: 12;
           color: rgba(255, 255, 255, 0.85);
@@ -345,8 +345,8 @@ export class RadarsCameraFeedElement extends HTMLElement {
         }
 
         .fullscreen-btn svg {
-          width: 14px;
-          height: 14px;
+          width: 18px;
+          height: 18px;
         }
       </style>
 

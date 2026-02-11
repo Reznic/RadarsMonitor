@@ -72,15 +72,85 @@ body {
 	display: none;
 }
 
+.camera-view-main {
+	display: flex;
+	gap: 16px;
+	width: 100%;
+	height: 100%;
+	max-width: 1800px;
+}
+
 .camera-grid {
 	display: grid;
 	grid-template-columns: repeat(4, 1fr);
-	grid-template-rows: repeat(2, 1fr);
+	grid-auto-rows: 1fr;
 	gap: 12px;
-	width: 100%;
-	height: 100%;
-	max-width: 1600px;
-	max-height: 900px;
+	flex: 1;
+	min-width: 0;
+}
+
+.camera-list {
+	width: 200px;
+	flex-shrink: 0;
+	background: rgba(0, 0, 0, 0.6);
+	border: 1px solid rgba(255, 255, 255, 0.2);
+	border-radius: 8px;
+	padding: 12px;
+	overflow-y: auto;
+}
+
+.camera-list-title {
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 1.5px;
+	color: rgba(255, 255, 255, 0.6);
+	margin-bottom: 12px;
+	padding-bottom: 8px;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.camera-list-item {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 8px 0;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.camera-list-item:last-child {
+	border-bottom: none;
+}
+
+.camera-list-item .camera-list-name {
+	font-size: 12px;
+	font-weight: 600;
+	color: rgba(255, 255, 255, 0.9);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.camera-list-toggle {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 10px;
+	font-weight: 600;
+	letter-spacing: 0.5px;
+	color: rgba(255, 255, 255, 0.7);
+	background: rgba(255, 255, 255, 0.1);
+	border: 1px solid rgba(255, 255, 255, 0.2);
+	border-radius: 4px;
+	padding: 4px 8px;
+	cursor: pointer;
+	font-family: inherit;
+	white-space: nowrap;
+}
+
+.camera-list-toggle:hover {
+	background: rgba(255, 255, 255, 0.15);
+	border-color: rgba(255, 255, 255, 0.3);
 }
 
 .camera-cell {
