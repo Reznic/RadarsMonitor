@@ -6,13 +6,37 @@ import {
 
 let cameraGrid: HTMLElement | null = null;
 let cameraList: HTMLElement | null = null;
+let cameraListWrapper: HTMLElement | null = null;
 
 export function initCameraView(): void {
 	cameraGrid = document.getElementById("cameraGrid");
 	cameraList = document.getElementById("cameraList");
+	cameraListWrapper = document.getElementById("cameraListWrapper");
 	if (!cameraGrid || !cameraList) return;
+	initCameraListCollapse();
 	renderCameraList();
 	renderCameraGrid();
+}
+
+function initCameraListCollapse(): void {
+	const btn = document.getElementById("cameraListCollapseBtn");
+	if (!cameraListWrapper || !btn) return;
+
+	btn.addEventListener("click", () => {
+		cameraListWrapper?.classList.toggle("collapsed");
+		btn.setAttribute(
+			"aria-label",
+			cameraListWrapper?.classList.contains("collapsed")
+				? "Expand camera list"
+				: "Collapse camera list",
+		);
+		btn.setAttribute(
+			"title",
+			cameraListWrapper?.classList.contains("collapsed")
+				? "Expand camera list"
+				: "Collapse camera list",
+		);
+	});
 }
 
 function renderCameraList(): void {
@@ -42,7 +66,7 @@ function renderCameraList(): void {
 			const next = !isCameraVisible(cameraId);
 			setCameraVisible(cameraId, next);
 			renderCameraList();
-			renderCameraGrid();
+			updateCameraGridVisibility();
 		});
 	}
 }
@@ -56,11 +80,20 @@ function escapeHtml(text: string): string {
 function renderCameraGrid(): void {
 	if (!cameraGrid) return;
 
-	const visibleCameras = CAMERAS.filter((c) => isCameraVisible(c.id));
-	cameraGrid.innerHTML = visibleCameras
-		.map(
-			(camera) =>
-				`<radars-camera-feed camera-id="${camera.id}" variant="gallery"></radars-camera-feed>`,
-		)
-		.join("");
+	cameraGrid.innerHTML = CAMERAS.map(
+		(camera) =>
+			`<radars-camera-feed camera-id="${camera.id}" variant="gallery"></radars-camera-feed>`,
+	).join("");
+
+	updateCameraGridVisibility();
+}
+
+function updateCameraGridVisibility(): void {
+	if (!cameraGrid) return;
+
+	for (const feed of Array.from(cameraGrid.querySelectorAll("radars-camera-feed"))) {
+		const cameraId = Number.parseInt(feed.getAttribute("camera-id") ?? "", 10);
+		if (!Number.isFinite(cameraId)) continue;
+		(feed as HTMLElement).style.display = isCameraVisible(cameraId) ? "" : "none";
+	}
 }
