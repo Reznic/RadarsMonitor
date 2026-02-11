@@ -322,17 +322,17 @@ export class RadarsCameraFeedElement extends HTMLElement {
 
         .fullscreen-btn {
           position: absolute;
-          right: 8px;
-          bottom: 8px;
-          width: 36px;
-          height: 36px;
+          right: 10px;
+          bottom: 10px;
+          width: 48px;
+          height: 48px;
           padding: 0;
           display: flex;
           align-items: center;
           justify-content: center;
           background: rgba(0, 0, 0, 0.5);
           border: 1px solid rgba(255, 255, 255, 0.25);
-          border-radius: 8px;
+          border-radius: 10px;
           cursor: pointer;
           z-index: 12;
           color: rgba(255, 255, 255, 0.85);
@@ -345,8 +345,8 @@ export class RadarsCameraFeedElement extends HTMLElement {
         }
 
         .fullscreen-btn svg {
-          width: 18px;
-          height: 18px;
+          width: 24px;
+          height: 24px;
         }
       </style>
 

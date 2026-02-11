@@ -102,4 +102,5 @@ function updateCameraGridVisibility(): void {
 
 	cameraGrid.classList.toggle("cols-1", visibleCount === 1 || visibleCount === 2);
 	cameraGrid.classList.toggle("cols-2", visibleCount >= 3 && visibleCount < 5);
+	cameraGrid.classList.toggle("cols-4", visibleCount >= 5);
 }
