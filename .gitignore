@@ -76,3 +76,6 @@ build/
 # Optional: Uncomment if you want to ignore data files
 # *.csv
 # data/
+
+# Local git worktrees
+.worktrees/
