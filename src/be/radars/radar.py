@@ -20,13 +20,15 @@ class Radar:
     
     def __init__(self, radar_id: str, host: str, http_port: int, tcp_port: int, 
                  radar_config: 'RadarConfiguration', azimuth: Optional[float] = None,
-                 on_tracked_targets_callback: Optional[Callable] = None ):
+                 on_tracked_targets_callback: Optional[Callable] = None,
+                 on_detections_callback: Optional[Callable] = None ):
         self.radar_id = radar_id
         self.config = radar_config
         self.host = host  # ip address of the radar node server
         self.http_port = http_port  # http port of the radar node server
         self.tcp_port = tcp_port  # tcp port for detections data stream
         self.on_tracked_targets_callback = on_tracked_targets_callback
+        self.on_detections_callback = on_detections_callback
         # installation azimuth angle of the radar
         if azimuth is None:
             self.azimuth = None
@@ -40,7 +42,8 @@ class Radar:
             host=self.host,
             tcp_port=self.tcp_port,
             frame_period=1.0 / self.config.fps,
-            on_tracked_targets=self.on_tracks_detect
+            on_tracked_targets=self.on_tracks_detect,
+            on_detections=self.on_detections
         )
 
         # Dictionary to store radar data: radar_id -> TrackData
@@ -144,20 +147,34 @@ class Radar:
             self.client.stop()
 
     def on_tracks_detect(self, radar_id, tracks):
-        if tracks:
-            classified_tracks = [track for track in tracks if track.target_class and track.target_class != 'n']
-            if len(classified_tracks) > 0:
-                class_map = {'c': 'car', 'h': 'human', 't': 'truck', 'n': 'none'}
-                for track in classified_tracks:
-                    #self.rotate_track(track)
-                    azimuth_base = self.azimuth if self.azimuth is not None else 0.0
-                    self.radar_tracks[radar_id] = {
-                        "track_id": track.id,
-                        "azimuth": -track.median_az + azimuth_base,
-                        "range": track.range_val,
-                        "class_name": class_map.get(track.target_class, 'unknown'),
-                    }
-                self.on_tracked_targets_callback(radar_id, classified_tracks)
+        tracks = tracks or []
+        # Defensive: some tracker implementations store tracks as list[list[Track]].
+        # If we accidentally receive that shape, unwrap the first element.
+        if tracks and isinstance(tracks[0], list):
+            tracks = tracks[0]
+        classified_tracks = [
+            track for track in tracks
+            if track.target_class and track.target_class != 'n'
+        ]
+        if classified_tracks:
+            class_map = {'c': 'car', 'h': 'human', 't': 'truck', 'n': 'none'}
+            for track in classified_tracks:
+                azimuth_base = self.azimuth if self.azimuth is not None else 0.0
+                self.radar_tracks[radar_id] = {
+                    "track_id": track.id,
+                    "azimuth": -track.median_az + azimuth_base,
+                    "range": track.range_val,
+                    "class_name": class_map.get(track.target_class, 'unknown'),
+                }
+        else:
+            self.radar_tracks.pop(radar_id, None)
+
+        if self.on_tracked_targets_callback:
+            self.on_tracked_targets_callback(radar_id, classified_tracks)
+
+    def on_detections(self, radar_id, detections, frame_number):
+        if self.on_detections_callback:
+            self.on_detections_callback(radar_id, detections, frame_number)
     
     def get_tracks(self) -> Dict[str, TrackData]:
         """

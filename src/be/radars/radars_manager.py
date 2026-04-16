@@ -1,13 +1,17 @@
 from typing import List, Dict, Callable, Optional, TypedDict, Union
 import os
+import re
 import json
 import threading
 import csv
 import logging
+from urllib.parse import urlparse
 from datetime import datetime
 from radar_tracks_server import RadarTracksServer
 from radar import Radar, RadarConfiguration
 from logging_setup import configure_logging
+from CameraSnapshot import CameraSnapshotManager
+from ds1307_rtc import DS1307RTC, find_ds1307_bus
 
 try:
     from flask import Flask, request, jsonify
@@ -33,9 +37,26 @@ class RadarsManager:
     UI_TRACKS_UPDATE_FILE = "Track_Logs/trks.csv"
     RADARS_FREQ_MARGIN = 0.25  # 250 MHz   to prevent interference between radars
     INIT_FREQ = 60  # GHz
-    
-    def __init__(self):
+    CAMERA_STREAMS_CONFIG_FILE = os.path.join(
+        os.path.dirname(__file__), "..", "..", "..", "config.json"
+    )
+    FE_CAMERA_CONFIG_TS = os.path.join(
+        os.path.dirname(__file__), "..", "..", "fe", "src", "config.ts"
+    )
+    CAMERA_SNAPSHOT_INTERVAL_WITH_TRACKS_SECONDS = 0.5  # 2 Hz when tracks exist (default mode)
+    CAMERA_SNAPSHOT_INTERVAL_DETECTION_MODE_SECONDS = 1.0  # 1 Hz all cameras (detection mode)
+    CAMERA_USERNAME = "admin"
+    CAMERA_PASSWORD = "password"
+    SNAPSHOT_MODES = frozenset(("default", "detection"))
+
+    def __init__(self) -> None:
         self._logger = logging.getLogger(__name__)
+        self._init_rtc_time_sync()
+        self.snapshot_mode = self._read_snapshot_mode_from_config()
+        self._logger.info(
+            "Camera snapshot mode: %s (from config radars_manager.snapshot_mode)",
+            self.snapshot_mode,
+        )
         self.radars: Dict[str, Radar] = {}
         self.next_radar_freq = self.INIT_FREQ
         self.radar_config = RadarConfiguration()
@@ -50,6 +71,9 @@ class RadarsManager:
         self._csv_write_count = 0
         self._csv_file_path = None
         self._setup_csv_file()
+        self._camera_snapshot_managers: List[CameraSnapshotManager] = []
+        self._stream_to_radar_serial: Dict[str, str] = self._load_stream_to_radar_from_fe_config()
+        self._start_camera_snapshots()
         
         self._load_azimuth_mapping(self.RADAR_AZIMUTH_MAPPING_FILE)
         
@@ -59,6 +83,94 @@ class RadarsManager:
         # Start radar tracks server
         self.radar_tracks_server = RadarTracksServer(port=self.RADAR_SERVER_PORT, radars_manager=self)
         self.radar_tracks_server.start_server()
+
+    def _init_rtc_time_sync(self) -> None:
+        """Create DS1307 object and let it apply sync policy on init."""
+        try:
+            bus = find_ds1307_bus()
+            if bus is None:
+                self._logger.warning("DS1307 not detected on any I2C bus; skipping RTC/system time sync.")
+                return
+            # side-effect: will sync RTC<->system according to cutoff year
+            DS1307RTC(bus=bus, sync_on_init=True, sync_cutoff_year=2026)
+            self._logger.info("RTC/system time sync attempted using DS1307 on bus=%s", bus)
+        except Exception:
+            self._logger.exception("Failed during RTC/system time sync on startup")
+
+    def _read_snapshot_mode_from_config(self) -> str:
+        """Load ``radars_manager.snapshot_mode`` from the top-level config.json."""
+        try:
+            with open(self.CAMERA_STREAMS_CONFIG_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            section = data.get("radars_manager") or {}
+            mode = section.get("snapshot_mode", "default")
+            if not isinstance(mode, str):
+                self._logger.warning(
+                    "radars_manager.snapshot_mode must be a string; got %r, using default",
+                    mode,
+                )
+                return "default"
+            mode = mode.strip().lower()
+            if mode not in self.SNAPSHOT_MODES:
+                self._logger.warning(
+                    "Invalid radars_manager.snapshot_mode %r; use default or detection. Using default.",
+                    section.get("snapshot_mode"),
+                )
+                return "default"
+            return mode
+        except FileNotFoundError:
+            self._logger.warning(
+                "Config not found at %s; snapshot_mode=default",
+                self.CAMERA_STREAMS_CONFIG_FILE,
+            )
+            return "default"
+        except Exception:
+            self._logger.exception(
+                "Could not read snapshot_mode from %s; using default",
+                self.CAMERA_STREAMS_CONFIG_FILE,
+            )
+            return "default"
+
+    def _load_stream_to_radar_from_fe_config(self) -> Dict[str, str]:
+        """Parse ``streamId`` → ``radarSerial`` from ``src/fe/src/config.ts`` (CAMERAS array)."""
+        mapping: Dict[str, str] = {}
+        try:
+            with open(self.FE_CAMERA_CONFIG_TS, "r", encoding="utf-8") as f:
+                text = f.read()
+        except FileNotFoundError:
+            self._logger.warning(
+                "FE camera config not found at %s; radar-linked snapshots disabled in default mode.",
+                self.FE_CAMERA_CONFIG_TS,
+            )
+            return mapping
+        except Exception:
+            self._logger.exception("Could not read FE camera config %s", self.FE_CAMERA_CONFIG_TS)
+            return mapping
+
+        pattern = re.compile(
+            r"""\{\s*
+                id:\s*(\d+),\s*
+                name:\s*"([^"]+)",\s*
+                streamId:\s*"([^"]+)",\s*
+                radarSerial:\s*"([^"]+)"\s*
+                \}""",
+            re.VERBOSE,
+        )
+        for m in pattern.finditer(text):
+            stream_id, radar_serial = m.group(3), m.group(4)
+            mapping[stream_id] = radar_serial
+        self._logger.info(
+            "Loaded %s camera→radar mappings from %s",
+            len(mapping),
+            self.FE_CAMERA_CONFIG_TS,
+        )
+        return mapping
+
+    @staticmethod
+    def _radar_ids_match(a: Optional[str], b: Optional[str]) -> bool:
+        if not a or not b:
+            return False
+        return a.strip().upper() == b.strip().upper()
 
     def register_radar(self, radar_id: str, host: str, http_port: int, tcp_port: int) -> None:
         """Register a new radar or update an existing one"""
@@ -85,7 +197,8 @@ class RadarsManager:
                 tcp_port=tcp_port,
                 radar_config=RadarConfiguration(chirp_start_freq=self.next_radar_freq),
                 azimuth=azimuth,
-                on_tracked_targets_callback=self._on_tracked_targets_callback
+                on_tracked_targets_callback=self._on_tracked_targets_callback,
+                on_detections_callback=self._on_detections_callback,
             )
             self.radars[radar_id] = radar
             self.next_radar_freq += self.RADARS_FREQ_MARGIN
@@ -159,6 +272,74 @@ class RadarsManager:
                 self._logger.warning("Azimuth mapping file not found: %s", file_path)
         except Exception as e:
             self._logger.warning("Could not load azimuth mapping from %s: %s", file_path, e)
+
+    def _extract_day_camera_configs(self) -> List[Dict[str, str]]:
+        """Load day-channel camera definitions from config.json."""
+        camera_configs: List[Dict[str, str]] = []
+        try:
+            with open(self.CAMERA_STREAMS_CONFIG_FILE, "r", encoding="utf-8") as f:
+                config_data = json.load(f)
+            streams = config_data.get("streams", {})
+            for stream_key, stream_data in streams.items():
+                channels = stream_data.get("channels", {})
+                day_channel = channels.get("0", {})
+                day_url = day_channel.get("url")
+                if not day_url:
+                    continue
+                parsed_url = urlparse(day_url)
+                if not parsed_url.hostname:
+                    continue
+                camera_name = stream_data.get("name", stream_key)
+                camera_configs.append({
+                    "stream_key": stream_key,
+                    "camera_name": camera_name,
+                    "camera_ip": parsed_url.hostname,
+                    "day_url": day_url,
+                })
+        except Exception:
+            self._logger.exception("Failed to load camera configs from %s", self.CAMERA_STREAMS_CONFIG_FILE)
+        return camera_configs
+
+    def _start_camera_snapshots(self) -> None:
+        """Create per-camera snapshot managers. Sampling depends on ``snapshot_mode``."""
+        camera_configs = self._extract_day_camera_configs()
+        for camera_cfg in camera_configs:
+            try:
+                stream_key = camera_cfg["stream_key"]
+                radar_serial = self._stream_to_radar_serial.get(stream_key)
+                if self.snapshot_mode == "default" and not radar_serial:
+                    self._logger.warning(
+                        "No radarSerial in FE config for stream %s (%s); "
+                        "skipping snapshot manager (default mode is radar-scoped).",
+                        stream_key,
+                        camera_cfg["camera_name"],
+                    )
+                    continue
+
+                interval = self.CAMERA_SNAPSHOT_INTERVAL_DETECTION_MODE_SECONDS
+                manager = CameraSnapshotManager(
+                    camera_id=camera_cfg["camera_name"],
+                    ip=camera_cfg["camera_ip"],
+                    username=self.CAMERA_USERNAME,
+                    password=self.CAMERA_PASSWORD,
+                    interval=interval,
+                    day_rtsp_url=camera_cfg.get("day_url"),
+                    radar_serial=radar_serial,
+                )
+                if self.snapshot_mode == "detection":
+                    manager.start_sampling()
+                self._camera_snapshot_managers.append(manager)
+            except Exception:
+                self._logger.exception(
+                    "Failed to start camera snapshot manager for %s (%s)",
+                    camera_cfg["camera_name"],
+                    camera_cfg["camera_ip"],
+                )
+        self._logger.info(
+            "Initialized %s camera snapshot manager(s) (mode=%s)",
+            len(self._camera_snapshot_managers),
+            self.snapshot_mode,
+        )
     
     def _start_boot_server(self, port: int) -> None:
         """Start a Flask server to receive boot messages from radar node servers"""
@@ -298,6 +479,13 @@ class RadarsManager:
 
     def stop(self) -> None:
         """Stop all radars and close CSV file"""
+        for camera_snapshot_manager in self._camera_snapshot_managers:
+            try:
+                camera_snapshot_manager.stop_sampling()
+            except Exception:
+                self._logger.exception("Error stopping camera snapshot manager")
+        self._camera_snapshot_managers.clear()
+
         for radar in self.radars.values():
             radar.stop()
         self.radars.clear()
@@ -319,20 +507,49 @@ class RadarsManager:
         self.nodes_boot_server.join()
 
     def _on_tracked_targets_callback(self, radar_id, tracks):
-        if tracks:
-            classified_tracks = [track for track in tracks if track.target_class and track.target_class != 'n']
-            if len(classified_tracks) > 0:
-                tracks_csv = convert_tracks_to_csv(tracks, radar_id, self)
-                if tracks_csv and self._csv_writer:
-                    try:
-                        with self._csv_file_lock:
-                            self._csv_writer.writerows(tracks_csv)
-                            self._csv_write_count += 1
-                            # Flush periodically (every 50 writes) instead of every time for better performance
-                            if self._csv_write_count % 50 == 0:
-                                self._csv_file.flush()
-                    except Exception as e:
-                        self._logger.exception("Error writing to CSV file")
+        if self.snapshot_mode == "detection":
+            return
+
+        for m in self._camera_snapshot_managers:
+            if not self._radar_ids_match(m.radar_serial, radar_id):
+                continue
+            try:
+                if tracks:
+                    if not m.is_running:
+                        m.start_sampling()
+                    m.set_interval(self.CAMERA_SNAPSHOT_INTERVAL_WITH_TRACKS_SECONDS)
+                elif m.is_running:
+                    m.stop_sampling()
+            except Exception:
+                self._logger.exception(
+                    "Failed to update snapshot state for %s (radar %s)",
+                    m.camera_id,
+                    radar_id,
+                )
+
+        return
+        #****Disabled - not needed for now***
+        
+        
+        #if tracks:
+        #    classified_tracks = [track for track in tracks if track.target_class and track.target_class != 'n']
+        #    if len(classified_tracks) > 0:
+        #        tracks_csv = convert_tracks_to_csv(tracks, radar_id, self)
+        #        if tracks_csv and self._csv_writer:
+        #            try:
+        #                with self._csv_file_lock:
+        #                    self._csv_writer.writerows(tracks_csv)
+        #                    self._csv_write_count += 1
+        #                    # Flush periodically (every 50 writes) instead of every time for better performance
+        #                    if self._csv_write_count % 50 == 0:
+        #                        self._csv_file.flush()
+        #            except Exception as e:
+        #                self._logger.exception("Error writing to CSV file")
+
+
+    def _on_detections_callback(self, radar_id, detections, frame_number):
+        # detection mode: all cameras snapshot at 1 Hz via background loops only
+        return
 
 
 def convert_tracks_to_csv(

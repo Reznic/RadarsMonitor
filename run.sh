@@ -7,11 +7,11 @@ set -e  # Exit on error
 export DISPLAY=:0
 export XAUTHORITY=/home/ideon/.Xauthority
 
-sleep 5
+#sleep 5
 
 #rotate screen inverted
-/usr/bin/xrandr --output DP-1 --rotate inverted
-/usr/bin/xinput set-prop 'WaveShare WS170120' "Coordinate Transformation Matrix" -1 0 1 0 -1 1 0 0 1
+#/usr/bin/xrandr --output DP-1 --rotate inverted
+#/usr/bin/xinput set-prop 'WaveShare WS170120' "Coordinate Transformation Matrix" -1 0 1 0 -1 1 0 0 1
 
 PROJECT_DIR="/home/ideon/RadarsMonitor"
 BUN_PATH="/home/ideon/.bun/bin/bun"

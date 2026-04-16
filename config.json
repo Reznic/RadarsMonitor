@@ -1,5 +1,8 @@
 {
-	"server": {
+	"radars_manager": {
+		"_comment_snapshot_mode": "snapshot_mode: \"default\" = 2 Hz ffmpeg snapshots only for the camera tied to each radar (streamId ? radarSerial in src/fe/src/config.ts) while that radar has classified tracks; \"detection\" = 1 Hz snapshots from every configured camera (background loop).",
+		"snapshot_mode": "default"
+	},	"server": {
 		"log_level": "info",
 		"http_demo": true,
 		"http_port": ":8083",

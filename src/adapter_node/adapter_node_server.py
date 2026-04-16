@@ -305,7 +305,7 @@ def main():
     radars_manager_port = int(argv[2]) if len(argv) > 2 else 9090
     
     # Wait for radars_manager to be ready before loading radars
-    wait_for_manager_ping(radars_manager_ip, radars_manager_port)
+    #wait_for_manager_ping(radars_manager_ip, radars_manager_port)
     
     load_radars(radars_manager_ip, radars_manager_port)
 
